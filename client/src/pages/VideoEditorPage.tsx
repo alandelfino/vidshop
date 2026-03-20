@@ -27,6 +27,7 @@ export default function VideoEditorPage() {
   const [saving, setSaving] = useState(false);
   
   const [mediaUrl, setMediaUrl] = useState("");
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [title, setTitle] = useState("Novo Vídeo Interativo");
   const [description, setDescription] = useState("");
   
@@ -67,6 +68,7 @@ export default function VideoEditorPage() {
         if (res.ok) {
           const data = await res.json();
           setMediaUrl(data.video.mediaUrl || "");
+          setThumbnailUrl(data.video.thumbnailUrl || "");
           setTitle(data.video.title || "");
           setDescription(data.video.description || "");
           setTimeline(data.videoProducts || []);
@@ -228,6 +230,29 @@ export default function VideoEditorPage() {
     }
   };
 
+  const handleUploadThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const token = localStorage.getItem("token");
+      const uploadRes = await fetch("/api/media/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!uploadRes.ok) throw new Error("Erro no upload da capa");
+      const uploadData = await uploadRes.json();
+      setThumbnailUrl(uploadData.media.url);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSearchProduct = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
@@ -301,7 +326,7 @@ export default function VideoEditorPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          title, description, mediaUrl, productsList: timeline.map(t => ({ productId: t.productId, startTime: t.startTime, endTime: t.endTime }))
+          title, description, mediaUrl, thumbnailUrl, productsList: timeline.map(t => ({ productId: t.productId, startTime: t.startTime, endTime: t.endTime }))
         })
       });
       if (res.ok) alert("Vídeo e timeline salvos com sucesso!");
@@ -359,7 +384,7 @@ export default function VideoEditorPage() {
         {/* Top Row: Player & Metadata */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-8 bg-black/90 aspect-video rounded-xl overflow-hidden relative shadow-inner flex items-center justify-center border border-border/50">
-            <video ref={videoRef} src={mediaUrl} className="w-full h-full object-contain" controls controlsList="nodownload" />
+            <video ref={videoRef} src={mediaUrl} poster={thumbnailUrl || undefined} className="w-full h-full object-contain" controls controlsList="nodownload" />
           </div>
           
           <div className="lg:col-span-4 flex flex-col">
@@ -371,6 +396,17 @@ export default function VideoEditorPage() {
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Título</label>
                   <input className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm focus:ring-1 focus:ring-primary shadow-sm" value={title} onChange={e => setTitle(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Capa (Thumbnail)</label>
+                  <div className="flex items-center gap-3">
+                    {thumbnailUrl && <img src={thumbnailUrl} className="w-10 h-10 object-cover rounded-md border border-border shrink-0" />}
+                    <label className="flex h-10 items-center justify-center rounded-md border border-input bg-secondary hover:bg-secondary/80 px-4 py-2 text-sm font-medium cursor-pointer transition-colors w-full">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Escolher Imagem
+                      <input type="file" accept="image/*" className="hidden" onChange={handleUploadThumbnail} />
+                    </label>
+                  </div>
                 </div>
                 <div className="flex-1 flex flex-col">
                   <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Descrição</label>

@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
+import cors from "cors";
 import { createServer } from "http";
 import { setupVite } from "./vite.js";
 import { registerRoutes } from "./routes.js";
@@ -12,6 +13,7 @@ import { catalogImports } from "../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 const app = express();
+app.use(cors({ origin: "*" })); // Permite acesso do script de carrossel de qualquer origem (inclusive localhost)
 const server = createServer(app);
 
 app.use(express.json());

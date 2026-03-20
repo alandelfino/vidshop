@@ -1,0 +1,2 @@
+ALTER TABLE "video_carousels" ADD COLUMN "title_color" text DEFAULT '#000000' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "subtitle_color" text DEFAULT '#666666' NOT NULL;

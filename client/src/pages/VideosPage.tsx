@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 interface ShoppableVideo {
   id: number;
   mediaUrl: string;
+  thumbnailUrl: string | null;
   title: string;
   description: string | null;
   createdAt: string;
@@ -109,6 +110,7 @@ export default function VideosPage() {
                       src={video.mediaUrl} 
                       className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" 
                       preload="metadata"
+                      poster={video.thumbnailUrl || undefined}
                       muted
                       loop
                       onMouseEnter={e => (e.target as HTMLVideoElement).play().catch(() => {})}

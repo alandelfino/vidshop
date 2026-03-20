@@ -91,7 +91,7 @@ export default function DashboardPage() {
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
           <ShoppingBag className="w-4 h-4 text-primary-foreground" />
         </div>
-        <span className="text-sm font-bold tracking-tight">onstore</span>
+        <span className="text-sm font-bold tracking-tight">Vidshop</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-6">

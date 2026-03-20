@@ -9,7 +9,7 @@ interface Carousel {
   id: number;
   name: string;
   title: string | null;
-  description: string | null;
+  subtitle: string | null;
   showProducts: boolean;
   createdAt: string;
   updatedAt: string;
@@ -20,7 +20,7 @@ function EmbedModal({ carousel, onClose }: { carousel: Carousel; onClose: () => 
 
   const origin = window.location.origin;
   const scriptTag = `<script src="${origin}/embed/carousel.js" async></script>`;
-  const divTag = `<div data-onstore-carousel="${carousel.id}"></div>`;
+  const divTag = `<div data-vidshop-carousel="${carousel.id}"></div>`;
 
   const copy = (text: string, key: "script" | "div") => {
     navigator.clipboard.writeText(text);
@@ -155,13 +155,13 @@ export default function CarouselsPage() {
                   </div>
                   <Badge variant={c.showProducts ? "default" : "secondary"} className="shrink-0 text-[10px] font-semibold py-0.5 px-2 flex items-center gap-1">
                     {c.showProducts ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                    {c.showProducts ? "Ativo" : "Oculto"}
+                    {c.showProducts ? "Com Produtos" : "Sem Produtos"}
                   </Badge>
                 </div>
 
-                {c.description && (
+                {c.subtitle && (
                   <p className="text-xs text-muted-foreground line-clamp-2 bg-muted/30 rounded-md px-3 py-2 border border-border/50">
-                    {c.description}
+                    {c.subtitle}
                   </p>
                 )}
 

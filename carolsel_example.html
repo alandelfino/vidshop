@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Page Title</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+</head>
+
+<body>
+    <!-- VIDEO CAROUSEL OTIMIZADO START -->
+    <div class="fashion-reels-carousel" data-autoplay="6000">
+        <style>
+            .fashion-reels-carousel {
+                width: 100%;
+                overflow: hidden;
+                display: flex;
+                justify-content: center;
+                padding: 60px 0;
+                padding-top: 0px;
+                contain: layout paint style;
+                background-color: transparent;
+            }
+
+            .fashion-reels-carousel * {
+                box-sizing: border-box;
+            }
+
+            .fashion-reels-carousel .frc-carousel {
+                position: relative;
+                width: 100%;
+                max-width: 1200px;
+                height: 500px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                isolation: isolate;
+                perspective: 1200px;
+            }
+
+            .fashion-reels-carousel .frc-slide {
+                position: absolute;
+                width: auto;
+                height: 100%;
+                aspect-ratio: 9 / 16;
+                border-radius: 24px;
+                overflow: hidden;
+                opacity: 0;
+                transform: translateX(0) scale(.8) rotateY(0deg);
+                transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease, box-shadow 0.6s ease;
+                will-change: transform, opacity;
+                backface-visibility: hidden;
+                -webkit-backface-visibility: hidden;
+                background: #000;
+                pointer-events: none;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }
+
+            .fashion-reels-carousel .frc-slide video {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+                background: #000;
+                transition: filter 0.6s ease;
+                filter: brightness(0.6);
+            }
+
+            .fashion-reels-carousel .frc-slide.is-center {
+                transform: translateX(0) scale(1) rotateY(0deg);
+                opacity: 1;
+                z-index: 5;
+                pointer-events: auto;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            }
+
+            .fashion-reels-carousel .frc-slide.is-center video {
+                filter: brightness(1);
+            }
+
+            .fashion-reels-carousel .frc-slide.is-left-1 {
+                transform: translateX(-85%) scale(.85) rotateY(12deg);
+                opacity: .8;
+                z-index: 4;
+            }
+
+            .fashion-reels-carousel .frc-slide.is-right-1 {
+                transform: translateX(85%) scale(.85) rotateY(-12deg);
+                opacity: .8;
+                z-index: 4;
+            }
+
+            .fashion-reels-carousel .frc-slide.is-left-2 {
+                transform: translateX(-160%) scale(.7) rotateY(20deg);
+                opacity: .4;
+                z-index: 3;
+            }
+
+            .fashion-reels-carousel .frc-slide.is-right-2 {
+                transform: translateX(160%) scale(.7) rotateY(-20deg);
+                opacity: .4;
+                z-index: 3;
+            }
+
+            .fashion-reels-carousel .frc-slide.is-hidden-left {
+                transform: translateX(-220%) scale(.6) rotateY(25deg);
+                opacity: 0;
+                z-index: 1;
+            }
+
+            .fashion-reels-carousel .frc-slide.is-hidden-right {
+                transform: translateX(220%) scale(.6) rotateY(-25deg);
+                opacity: 0;
+                z-index: 1;
+            }
+
+            @media (max-width: 900px) {
+                .fashion-reels-carousel .frc-carousel {
+                    height: 450px;
+                }
+            }
+
+            @media (max-width: 600px) {
+                .fashion-reels-carousel {
+                    padding: 50px 0;
+                }
+                .fashion-reels-carousel .frc-carousel {
+                    height: calc(76vw * 16 / 9);
+                    max-height: 85vh;
+                    min-height: 380px;
+                    perspective: 800px;
+                }
+
+                .fashion-reels-carousel .frc-slide {
+                    width: 76%;
+                    max-width: calc(85vh * 9 / 16);
+                    height: auto;
+                    aspect-ratio: 9 / 16;
+                    border-radius: 18px;
+                }
+
+                .fashion-reels-carousel .frc-slide.is-left-1 {
+                    transform: translateX(-65%) scale(.85) rotateY(20deg);
+                    opacity: 0.9;
+                }
+
+                .fashion-reels-carousel .frc-slide.is-right-1 {
+                    transform: translateX(65%) scale(.85) rotateY(-20deg);
+                    opacity: 0.9;
+                }
+
+                .fashion-reels-carousel .frc-slide.is-left-2 {
+                    transform: translateX(-110%) scale(.7) rotateY(30deg);
+                    opacity: 0.5;
+                }
+
+                .fashion-reels-carousel .frc-slide.is-right-2 {
+                    transform: translateX(110%) scale(.7) rotateY(-30deg);
+                    opacity: 0.5;
+                }
+
+                .fashion-reels-carousel .frc-slide.is-hidden-left {
+                    transform: translateX(-160%) scale(.6) rotateY(35deg);
+                    opacity: 0;
+                }
+
+                .fashion-reels-carousel .frc-slide.is-hidden-right {
+                    transform: translateX(160%) scale(.6) rotateY(-35deg);
+                    opacity: 0;
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .fashion-reels-carousel .frc-slide {
+                    transition: none;
+                }
+            }
+
+            .fashion-reels-carousel .frc-controls {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                z-index: 10;
+                pointer-events: none;
+            }
+
+            .fashion-reels-carousel .frc-slide.is-center .frc-controls {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .fashion-reels-carousel .frc-btn {
+                background: transparent;
+                border: none;
+                border-radius: 50%;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                cursor: pointer;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                transition: background 0.2s, transform 0.2s;
+            }
+
+            .fashion-reels-carousel .frc-btn:active {
+                transform: scale(0.9);
+            }
+
+            .fashion-reels-carousel .frc-btn:hover {
+                background: rgba(0, 0, 0, 0.7);
+            }
+
+            .fashion-reels-carousel .frc-btn svg {
+                width: 20px;
+                height: 20px;
+            }
+        </style>
+        <div class="frc-carousel">
+            <div class="frc-slide">
+                <video muted playsinline loop preload="none" poster="">
+                    <source
+                        src="https://magazord-public.s3.amazonaws.com/directtawear/img/2026/03/banner/32049/vid-1.mp4"
+                        type="video/mp4">
+                </video>
+            </div>
+            <div class="frc-slide">
+                <video muted playsinline loop preload="none" poster="">
+                    <source
+                        src="https://magazord-public.s3.amazonaws.com/directtawear/img/2026/03/banner/32050/vid-2.mp4"
+                        type="video/mp4">
+                </video>
+            </div>
+            <div class="frc-slide">
+                <video muted playsinline loop preload="none" poster="">
+                    <source
+                        src="https://magazord-public.s3.amazonaws.com/directtawear/img/2026/03/banner/32051/vid-3.mp4"
+                        type="video/mp4">
+                </video>
+            </div>
+            <div class="frc-slide">
+                <video muted playsinline loop preload="none" poster="">
+                    <source
+                        src="https://magazord-public.s3.amazonaws.com/directtawear/img/2026/03/banner/32052/vid-4.mp4"
+                        type="video/mp4">
+                </video>
+            </div>
+            <div class="frc-slide">
+                <video muted playsinline loop preload="none" poster="">
+                    <source
+                        src="https://magazord-public.s3.amazonaws.com/directtawear/img/2026/03/banner/32053/vid-6.mp4"
+                        type="video/mp4">
+                </video>
+            </div>
+        </div>
+        <script>
+            (function () {
+                const blocks = document.querySelectorAll(".fashion-reels-carousel");
+
+                blocks.forEach((root) => {
+                    if (root.dataset.frcInitialized === "true") return;
+                    root.dataset.frcInitialized = "true";
+
+                    const slides = Array.from(root.querySelectorAll(".frc-slide"));
+                    const videos = slides.map(slide => slide.querySelector("video"));
+                    const autoplayDelay = Number(root.dataset.autoplay || 6000);
+
+                    let current = Math.floor(slides.length / 2);
+                    let timer = null;
+                    let isVisible = false;
+                    let isPageVisible = !document.hidden;
+                    let lastCurrent = -1;
+                    let isManualPause = false;
+                    
+                    let touchStartX = 0;
+                    let touchEndX = 0;
+
+                    function getOffset(index, active, total) {
+                        let offset = index - active;
+                        if (offset > total / 2) offset -= total;
+                        if (offset < -total / 2) offset += total;
+                        return offset;
+                    }
+
+                    function applyClasses() {
+                        const total = slides.length;
+
+                        slides.forEach((slide, index) => {
+                            slide.className = "frc-slide";
+                            const offset = getOffset(index, current, total);
+
+                            if (offset === 0) slide.classList.add("is-center");
+                            else if (offset === -1) slide.classList.add("is-left-1");
+                            else if (offset === 1) slide.classList.add("is-right-1");
+                            else if (offset === -2) slide.classList.add("is-left-2");
+                            else if (offset === 2) slide.classList.add("is-right-2");
+                            else if (offset < 0) slide.classList.add("is-hidden-left");
+                            else slide.classList.add("is-hidden-right");
+                        });
+                    }
+
+                    function pauseAllVideos() {
+                        videos.forEach((video) => {
+                            try { video.pause(); } catch (e) { }
+                        });
+                    }
+
+                    function playCurrentVideo() {
+                        if (isManualPause) {
+                            pauseAllVideos();
+                            return;
+                        }
+
+                        videos.forEach((video, index) => {
+                            if (index === current && isVisible && isPageVisible) {
+                                if (lastCurrent !== current) {
+                                    try { video.currentTime = 0; } catch (e) { }
+                                }
+                                const playPromise = video.play();
+                                if (playPromise && typeof playPromise.catch === "function") {
+                                    playPromise.catch(() => { });
+                                }
+                            } else {
+                                try { video.pause(); } catch (e) { }
+                            }
+                        });
+
+                        lastCurrent = current;
+                    }
+
+                    function update() {
+                        isManualPause = false; // Reset pauser override on slide change
+                        applyClasses();
+                        playCurrentVideo();
+                    }
+
+                    function next() {
+                        current = (current + 1) % slides.length;
+                        update();
+                    }
+                    
+                    function prev() {
+                        current = (current - 1 + slides.length) % slides.length;
+                        update();
+                    }
+
+                    function startTimer() {
+                        if (timer || !isVisible || !isPageVisible || isManualPause) return;
+                        timer = window.setInterval(next, autoplayDelay);
+                    }
+
+                    function stopTimer() {
+                        if (!timer) return;
+                        window.clearInterval(timer);
+                        timer = null;
+                    }
+                    
+                    function resetTimer() {
+                        stopTimer();
+                        startTimer();
+                    }
+
+                    const observer = new IntersectionObserver((entries) => {
+                        entries.forEach((entry) => {
+                            isVisible = entry.isIntersecting && entry.intersectionRatio > 0.2;
+
+                            if (isVisible) {
+                                if (!isManualPause) {
+                                    update();
+                                    startTimer();
+                                }
+                            } else {
+                                stopTimer();
+                                pauseAllVideos();
+                            }
+                        });
+                    }, { threshold: [0, 0.2, 0.6] });
+
+                    observer.observe(root);
+
+                    document.addEventListener("visibilitychange", () => {
+                        isPageVisible = !document.hidden;
+
+                        if (isPageVisible && isVisible) {
+                            if (!isManualPause) {
+                                playCurrentVideo();
+                                startTimer();
+                            }
+                        } else {
+                            stopTimer();
+                            pauseAllVideos();
+                        }
+                    });
+
+                    // Swipe / Drag handling
+                    let touchStartY = 0;
+                    let isSwipingHorizontal = null;
+
+                    root.addEventListener('touchstart', e => {
+                        touchStartX = e.changedTouches[0].screenX;
+                        touchStartY = e.changedTouches[0].screenY;
+                        isSwipingHorizontal = null;
+                        root.dataset.isDragging = "true";
+                    }, { passive: true });
+
+                    root.addEventListener('touchmove', e => {
+                        if (!root.dataset.isDragging) return;
+                        
+                        let touchCurrentX = e.changedTouches[0].screenX;
+                        let touchCurrentY = e.changedTouches[0].screenY;
+                        
+                        let dx = Math.abs(touchCurrentX - touchStartX);
+                        let dy = Math.abs(touchCurrentY - touchStartY);
+                        
+                        if (isSwipingHorizontal === null) {
+                            if (dx > dy && dx > 5) {
+                                isSwipingHorizontal = true;
+                            } else if (dy > dx && dy > 5) {
+                                isSwipingHorizontal = false;
+                            }
+                        }
+                        
+                        if (isSwipingHorizontal) {
+                            if (e.cancelable) e.preventDefault();
+                        }
+                    }, { passive: false });
+
+                    root.addEventListener('touchend', e => {
+                        root.dataset.isDragging = "";
+                        if (isSwipingHorizontal === false) return; // Vertical scroll
+                        
+                        touchEndX = e.changedTouches[0].screenX;
+                        const swipeThreshold = 40;
+                        if (touchEndX < touchStartX - swipeThreshold) {
+                            next();
+                            resetTimer();
+                        } else if (touchEndX > touchStartX + swipeThreshold) {
+                            prev();
+                            resetTimer();
+                        }
+                    }, { passive: true });
+
+                    // Mouse Drag
+                    let isDragging = false;
+                    let mouseStart = 0;
+                    root.addEventListener('mousedown', e => {
+                        isDragging = true;
+                        mouseStart = e.screenX;
+                    });
+                    
+                    root.addEventListener('mouseup', e => {
+                        if (!isDragging) return;
+                        isDragging = false;
+                        const touchEnd = e.screenX;
+                        const swipeThreshold = 40;
+                        if (touchEnd < mouseStart - swipeThreshold) {
+                            next();
+                            resetTimer();
+                        } else if (touchEnd > mouseStart + swipeThreshold) {
+                            prev();
+                            resetTimer();
+                        }
+                        
+                        root.dataset.lastDragDist = Math.abs(touchEnd - mouseStart);
+                        setTimeout(() => root.dataset.lastDragDist = '0', 50);
+                    });
+                    
+                    root.addEventListener('mouseleave', () => {
+                        isDragging = false;
+                    });
+
+                    // Controls and Clicks
+                    videos.forEach((video, index) => {
+                        video.muted = true;
+                        
+                        video.addEventListener('play', () => {
+                            const slide = slides[index];
+                            const playBtn = slide.querySelector('.frc-play-btn');
+                            if (playBtn) {
+                                playBtn.querySelector('.icon-pause').style.display = 'block';
+                                playBtn.querySelector('.icon-play').style.display = 'none';
+                            }
+                        });
+                        
+                        video.addEventListener('pause', () => {
+                            const slide = slides[index];
+                            const playBtn = slide.querySelector('.frc-play-btn');
+                            if (playBtn) {
+                                playBtn.querySelector('.icon-pause').style.display = 'none';
+                                playBtn.querySelector('.icon-play').style.display = 'block';
+                            }
+                        });
+
+                        video.addEventListener('volumechange', () => {
+                            const slide = slides[index];
+                            const muteBtn = slide.querySelector('.frc-mute-btn');
+                            if (muteBtn) {
+                                muteBtn.querySelector('.icon-mute').style.display = video.muted ? 'block' : 'none';
+                                muteBtn.querySelector('.icon-unmute').style.display = video.muted ? 'none' : 'block';
+                            }
+                        });
+                    });
+
+                    slides.forEach((slide, index) => {
+                        const controls = document.createElement('div');
+                        controls.className = 'frc-controls';
+                        controls.innerHTML = `
+                            <button class="frc-btn frc-mute-btn" aria-label="Mute/Unmute">
+                                <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                                <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                            </button>
+                            <button class="frc-btn frc-play-btn" aria-label="Play/Pause">
+                                <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                                <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </button>
+                        `;
+                        slide.appendChild(controls);
+
+                        const video = videos[index];
+                        const muteBtn = controls.querySelector('.frc-mute-btn');
+                        const playBtn = controls.querySelector('.frc-play-btn');
+
+                        muteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation(); // prevent triggering the slide click
+                            const setMuted = !video.muted;
+                            videos.forEach(v => v.muted = setMuted);
+                        });
+
+                        playBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (video.paused) {
+                                isManualPause = false;
+                                video.play();
+                                startTimer();
+                            } else {
+                                isManualPause = true;
+                                video.pause();
+                                stopTimer();
+                            }
+                        });
+                        
+                        slide.addEventListener("click", (e) => {
+                            if (Number(root.dataset.lastDragDist) > 40) return;
+                            
+                            if (index === current) {
+                                // Toggle audio if center slide clicked
+                                const setMuted = !video.muted;
+                                videos.forEach(v => v.muted = setMuted);
+                            } else {
+                                current = index;
+                                update();
+                                resetTimer();
+                            }
+                        });
+                    });
+
+                    update();
+                });
+            })();
+        </script>
+    </div>
+    <!-- VIDEO CAROUSEL OTIMIZADO END -->
+</body>
+
+</html>

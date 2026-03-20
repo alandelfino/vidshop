@@ -29,7 +29,10 @@ export default function CarouselEditorPage() {
   // Form fields
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [titleColor, setTitleColor] = useState("#000000");
+  const [subtitle, setSubtitle] = useState("");
+  const [subtitleColor, setSubtitleColor] = useState("#666666");
+  const [layout, setLayout] = useState("3d-card");
   const [showProducts, setShowProducts] = useState(true);
   const [videoList, setVideoList] = useState<CarouselVideoEntry[]>([]);
 
@@ -54,7 +57,10 @@ export default function CarouselEditorPage() {
         const data = await res.json();
         setName(data.carousel.name || "");
         setTitle(data.carousel.title || "");
-        setDescription(data.carousel.description || "");
+        setTitleColor(data.carousel.titleColor || "#000000");
+        setSubtitle(data.carousel.subtitle || "");
+        setSubtitleColor(data.carousel.subtitleColor || "#666666");
+        setLayout(data.carousel.layout || "3d-card");
         setShowProducts(data.carousel.showProducts ?? true);
         setVideoList((data.videos || []).map((v: any) => ({
           videoId: v.videoId,
@@ -112,7 +118,7 @@ export default function CarouselEditorPage() {
     try {
       const token = localStorage.getItem("token");
       const payload = {
-        name, title, description, showProducts,
+        name, title, subtitle, titleColor, subtitleColor, layout, showProducts,
         videoIds: videoList.map(e => e.videoId)
       };
 
@@ -120,7 +126,7 @@ export default function CarouselEditorPage() {
         const createRes = await fetch("/api/carousels", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, title, description, showProducts })
+          body: JSON.stringify({ name, title, subtitle, titleColor, subtitleColor, layout, showProducts })
         });
         if (!createRes.ok) throw new Error("Erro ao criar carrossel");
         const created = await createRes.json();
@@ -162,7 +168,7 @@ export default function CarouselEditorPage() {
           <div>
             <h1 className="text-base font-bold line-clamp-1">{name || (isNew ? "Novo Carrossel" : "Editar Carrossel")}</h1>
             <p className="text-xs text-muted-foreground">
-              {videoList.length} vídeo{videoList.length !== 1 ? "s" : ""} · {showProducts ? "Visível" : "Oculto"}
+              {videoList.length} vídeo{videoList.length !== 1 ? "s" : ""} · {showProducts ? "Com Produtos" : "Sem Produtos"}
             </p>
           </div>
         </div>
@@ -192,24 +198,59 @@ export default function CarouselEditorPage() {
                   onChange={e => setName(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Título Público</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Vídeos em Destaque"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                />
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Título Público</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Vídeos em Destaque"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Cor (<span className="font-mono">{titleColor}</span>)</label>
+                  <input
+                    type="color"
+                    className="h-10 w-24 rounded-md border border-input bg-background p-1 cursor-pointer"
+                    value={titleColor}
+                    onChange={e => setTitleColor(e.target.value)}
+                  />
+                </div>
               </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Subtítulo</label>
+                  <textarea
+                    placeholder="Subtítulo curto do carrossel..."
+                    className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    value={subtitle}
+                    onChange={e => setSubtitle(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Cor (<span className="font-mono">{subtitleColor}</span>)</label>
+                  <input
+                    type="color"
+                    className="h-10 w-24 rounded-md border border-input bg-background p-1 cursor-pointer"
+                    value={subtitleColor}
+                    onChange={e => setSubtitleColor(e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Descrição</label>
-                <textarea
-                  placeholder="Subtítulo curto do carrossel..."
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                />
+                <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Modelo do Carrossel</label>
+                <select
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={layout}
+                  onChange={e => setLayout(e.target.value)}
+                >
+                  <option value="3d-card">Cartão 3D</option>
+                  <option value="slider">Slider Simples</option>
+                  <option value="stories" disabled>Stories (Em Breve)</option>
+                </select>
               </div>
 
               {/* Show/Hide Toggle */}
@@ -223,8 +264,8 @@ export default function CarouselEditorPage() {
                     ? <Eye className="w-5 h-5 text-primary" />
                     : <EyeOff className="w-5 h-5 text-muted-foreground" />}
                   <div className="text-left">
-                    <p className="text-sm font-semibold">{showProducts ? "Carrossel Ativo" : "Carrossel Oculto"}</p>
-                    <p className="text-xs text-muted-foreground">{showProducts ? "Visível para os usuários" : "Oculto de todos"}</p>
+                    <p className="text-sm font-semibold">{showProducts ? "Mostrar Produtos" : "Ocultar Produtos"}</p>
+                    <p className="text-xs text-muted-foreground">{showProducts ? "Exibe os cards sobre o vídeo" : "Oculta links de compra"}</p>
                   </div>
                 </div>
                 <div className={`w-11 h-6 rounded-full transition-colors shrink-0 relative ${showProducts ? 'bg-primary' : 'bg-muted'}`}>
@@ -360,7 +401,7 @@ function EmbedSection({ id }: { id: string }) {
   const [copied, setCopied] = useState<"script" | "div" | null>(null);
   const origin = window.location.origin;
   const scriptTag = `<script src="${origin}/embed/carousel.js" async></script>`;
-  const divTag = `<div data-onstore-carousel="${id}"></div>`;
+  const divTag = `<div data-vidshop-carousel="${id}"></div>`;
 
   const copy = (text: string, key: "script" | "div") => {
     navigator.clipboard.writeText(text);
