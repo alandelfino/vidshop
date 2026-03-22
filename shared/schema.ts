@@ -27,7 +27,8 @@ export const stores = pgTable("stores", {
   allowedDomain: text("allowed_domain"),
   
   // Billing specific to this store
-  plan: text("plan").notNull().default("free"), // free, pro, ultra, gold
+  plan: text("plan").notNull().default("free"), // free (trial/expired), pro, ultra, gold
+  trialEndsAt: timestamp("trial_ends_at"), // set on store creation, expires after 14 days
   currentCycleViews: integer("current_cycle_views").notNull().default(0),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -13,7 +13,10 @@ import {
   PlaySquare,
   LayoutGrid,
   Settings,
-  CreditCard
+  CreditCard,
+  Store,
+  ChevronDown,
+  ArrowUpDown
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,6 +79,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!storeLoading && !activeStore && path !== "/dashboard/stores") {
@@ -114,11 +118,18 @@ export default function DashboardPage() {
 
   const Sidebar = (
     <aside className="flex flex-col h-full w-64 bg-foreground text-white">
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-white/10">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <ShoppingBag className="w-4 h-4 text-primary-foreground" />
+      <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10 shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/20 shrink-0 ring-1 ring-white/10">
+          <PlaySquare className="w-4 h-4 text-primary-foreground fill-primary-foreground/20" />
         </div>
-        <span className="text-sm font-bold tracking-tight">Vidshop</span>
+        <div className="flex flex-col min-w-0 md:pt-0.5">
+          <span className="text-xl font-black tracking-tight leading-none text-white drop-shadow-sm">
+            VidShop
+          </span>
+          <span className="text-[9px] uppercase tracking-widest text-primary/80 font-bold mt-1">
+            Platform
+          </span>
+        </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-6">
@@ -206,25 +217,54 @@ export default function DashboardPage() {
             </button>
           )}
 
-          <div className="flex-1">
-            <h1 className="text-lg font-bold tracking-tight text-foreground">{title}</h1>
-            <p className="text-xs text-muted-foreground hidden sm:block">{subtitle}</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold tracking-tight text-foreground truncate">{title}</h1>
+            <p className="text-xs text-muted-foreground hidden sm:block truncate">{subtitle}</p>
           </div>
 
           <div className="flex items-center gap-3">
             {loading ? (
               <Skeleton className="h-8 w-28" />
             ) : (
-              <>
-                <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/stores")} className="hidden md:flex h-8 text-xs font-semibold mr-2 border-primary/20 hover:bg-primary/5">
-                  Minhas Lojas
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2 h-9 px-3 border-border/50 bg-secondary/20 hover:bg-secondary/40"
+                  onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
+                >
+                  <Store className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold max-w-[150px] truncate">
+                    {activeStore ? activeStore.name : "Selecionar Loja"}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 opacity-50 transition-transform ${storeDropdownOpen ? "rotate-180" : ""}`} />
                 </Button>
-                <div className="h-8 w-px bg-border hidden sm:block mx-1"></div>
-                <span className="text-sm text-muted-foreground hidden sm:block ml-2">
-                  Olá, <span className="font-medium text-foreground">{user?.name?.split(" ")[0]}</span>
-                </span>
-                <Avatar fallback={user?.name ? getInitials(user.name) : "?"} size="sm" />
-              </>
+                
+                {storeDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setStoreDropdownOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-md z-50 overflow-hidden animate-in fade-in-80 slide-in-from-top-2">
+                      <div className="p-1">
+                        <button
+                          onClick={() => { setStoreDropdownOpen(false); navigate("/dashboard/settings"); }}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                          disabled={!activeStore}
+                        >
+                          <Settings className="w-4 h-4 opacity-70 shrink-0" />
+                          Configurações da Loja
+                        </button>
+                        <div className="h-px bg-border/50 my-1 mx-1"></div>
+                        <button
+                          onClick={() => { setStoreDropdownOpen(false); navigate("/dashboard/stores"); }}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-muted transition-colors cursor-pointer text-left"
+                        >
+                          <LayoutDashboard className="w-4 h-4 opacity-70 shrink-0" />
+                          Minhas Lojas
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </header>

@@ -7,15 +7,8 @@ export const stripe = new Stripe(stripeSecretKey, {
   apiVersion: "2023-10-16" as any,
 });
 
-// Plan configs
+// Plan configs (paid plans only – free is an internal state for unsubscribed/trial-expired stores)
 export const PLANS = {
-  free: {
-    name: "Free",
-    price: 0,
-    maxCarousels: 1,
-    maxVideos: 10,
-    maxViews: 1000,
-  },
   pro: {
     name: "Pro",
     price: 3990, // cents
@@ -43,3 +36,11 @@ export const PLANS = {
 };
 
 export type PlanId = keyof typeof PLANS;
+
+// Limits for stores in free trial (matches Pro limits)
+export const TRIAL_LIMITS = {
+  name: "Trial",
+  maxCarousels: 2,
+  maxVideos: 50,
+  maxViews: 10000,
+};

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Upload, Save, ArrowLeft, Plus, Search, Trash2, X, AlertCircle, GripVertical, GripHorizontal, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 interface Product {
   id: number;
@@ -427,8 +428,6 @@ export default function VideoEditorPage() {
     }
   };
 
-  if (loading) return <div className="flex h-full items-center justify-center p-24 text-muted-foreground"><Loader2 className="animate-spin" /></div>;
-
   if (id === "new" || !id) {
     return (
       <div className="flex flex-col gap-6 h-full max-w-3xl mx-auto w-full pt-10">
@@ -440,34 +439,48 @@ export default function VideoEditorPage() {
             <h2 className="text-xl font-bold">Criar Novo Shoppable Video</h2>
             <p className="text-sm text-muted-foreground mt-1">Envie o vídeo matriz para começarmos a edição na timeline.</p>
           </div>
-          <div className="p-6">
-            <label className="relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-16 bg-muted/10 hover:bg-muted/20 cursor-pointer transition-colors group">
-              {loading && (
-                <div 
-                  className="absolute left-0 top-0 bottom-0 bg-primary/30 transition-all duration-300 pointer-events-none"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              )}
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors shadow-sm">
-                  {loading ? (
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                  ) : (
-                    <Upload className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                  )}
+          <div className="p-8">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-10 max-w-md mx-auto animate-in fade-in duration-300">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                  <Upload className="w-8 h-8 text-primary animate-pulse" />
                 </div>
-                <p className="text-base font-semibold text-foreground">
-                  {loading ? (uploadProgress > 0 ? `Enviando vídeo... ${uploadProgress}%` : 'Processando envio...') : 'Clique para escolher o vídeo'}
+                <h3 className="text-xl font-bold mb-2">Processando Upload...</h3>
+                <p className="text-sm text-muted-foreground mb-8 text-center leading-relaxed">
+                  Por favor, não feche esta janela. Estamos processando o seu vídeo e isso pode levar alguns momentos dependendo do tamanho.
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">Formatos suportados: .mp4, .mov, .webm</p>
+                
+                <div className="w-full space-y-3">
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span>Enviando arquivo</span>
+                    <span className="text-primary">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress > 0 ? uploadProgress : undefined} className="h-3 w-full" />
+                </div>
               </div>
-              <input type="file" accept="video/*" className="hidden" onChange={handleUploadNew} disabled={loading} />
-            </label>
+            ) : (
+              <label className="relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-16 bg-muted/10 hover:bg-muted/20 cursor-pointer transition-colors group">
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-full bg-background border border-border flex items-center justify-center mb-5 group-hover:bg-primary/5 transition-colors shadow-sm">
+                    <Video className="w-7 h-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <p className="text-base font-semibold text-foreground">
+                    Clique para selecionar um vídeo do seu computador
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1 text-center max-w-sm">
+                    Recomendamos formatos .mp4, .mov ou .webm. O vídeo servirá de base para a timeline interativa.
+                  </p>
+                </div>
+                <input type="file" accept="video/*" className="hidden" onChange={handleUploadNew} disabled={loading} />
+              </label>
+            )}
           </div>
         </div>
       </div>
     );
   }
+
+  if (loading) return <div className="flex h-full items-center justify-center p-24 text-muted-foreground"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="flex flex-col gap-5 h-full max-w-[1400px] mx-auto w-full pb-8">

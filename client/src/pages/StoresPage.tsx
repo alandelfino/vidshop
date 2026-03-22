@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 
 // ─── Plan definitions ─────────────────────────────────────────────────────────
 
-type PlanId = "free" | "pro" | "ultra" | "gold";
+type PlanId = "pro" | "ultra" | "gold";
 
 const PLANS: Record<PlanId, {
   name: string;
@@ -24,15 +24,7 @@ const PLANS: Record<PlanId, {
   icon: React.ReactNode;
   features: string[];
 }> = {
-  free: {
-    name: "Free",
-    price: "Grátis",
-    description: "Ideal para começar e testar a plataforma.",
-    borderColor: "border-border",
-    accentColor: "text-muted-foreground",
-    icon: <Zap className="w-5 h-5" />,
-    features: ["1 Carrossel", "10 Vídeos", "1.000 views / mês"],
-  },
+
   pro: {
     name: "Pro",
     price: "R$ 39,90/mês",
@@ -69,7 +61,7 @@ const PLANS: Record<PlanId, {
 function CreateStoreModal({ onClose, onCreated }: { onClose: () => void; onCreated: (store: any) => void }) {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
-  const [plan, setPlan] = useState<PlanId>("free");
+  const [plan, setPlan] = useState<PlanId>("pro");
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -151,7 +143,7 @@ function CreateStoreModal({ onClose, onCreated }: { onClose: () => void; onCreat
         {/* Plan selector */}
         <div className="flex flex-col gap-4">
           <h3 className="text-base font-semibold">Escolha o Plano</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {(Object.entries(PLANS) as [PlanId, typeof PLANS[PlanId]][]).map(([id, p]) => {
               const isSelected = plan === id;
               return (
@@ -164,7 +156,12 @@ function CreateStoreModal({ onClose, onCreated }: { onClose: () => void; onCreat
                     ${isSelected ? "bg-primary/5 shadow-lg scale-[1.02]" : "bg-muted/20 hover:bg-muted/40"}
                   `}
                 >
-                  {p.badge && (
+                  {!isSelected && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow">
+                      14 dias grátis
+                    </span>
+                  )}
+                  {p.badge && isSelected && (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow">
                       {p.badge}
                     </span>
@@ -194,7 +191,7 @@ function CreateStoreModal({ onClose, onCreated }: { onClose: () => void; onCreat
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            Planos pagos serão integrados com Stripe. Por ora a seleção é manual — o checkout estará disponível na página de Assinatura.
+            Todas as lojas incluem <strong>14 dias de teste grátis automático</strong> sem necessidade de cartão de crédito no momento da criação.
           </p>
         </div>
 

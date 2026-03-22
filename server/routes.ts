@@ -13,7 +13,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import { publicScript } from "./public-script.js";
 import { purgeCloudflareCache } from "./cloudflare-purge.js";
-import { stripe, PLANS, PlanId } from "./stripe.js";
+import { stripe, PLANS, TRIAL_LIMITS, PlanId } from "./stripe.js";
 import { shouldCountView, todayUTC } from "./view-tracker.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
@@ -184,10 +184,12 @@ export function registerRoutes(app: Express) {
 
     app.post("/api/stores", authMiddleware, async (req: Request, res: Response) => {
         const payload = (req as any).user as JwtPayload;
-        const { name, allowedDomain, plan } = req.body;
+        const { name, allowedDomain } = req.body;
         if (!name || !allowedDomain) return res.status(400).json({ error: "Nome da loja e domínio são obrigatórios" });
-        
-        const [store] = await db.insert(stores).values({ name, allowedDomain, plan: plan || "free", ownerId: payload.userId }).returning();
+
+        // Auto-start 14-day free trial (no credit card required)
+        const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+        const [store] = await db.insert(stores).values({ name, allowedDomain, plan: "free", trialEndsAt, ownerId: payload.userId }).returning();
         res.status(201).json({ store });
     });
 
@@ -440,7 +442,14 @@ export function registerRoutes(app: Express) {
                     }
 
                     const planId = store.plan as PlanId;
-                    const limits = PLANS[planId] || PLANS.free;
+                    const isTrialActive = store.plan === "free" && store.trialEndsAt && store.trialEndsAt > new Date();
+                    const isTrialExpired = store.plan === "free" && (!store.trialEndsAt || store.trialEndsAt <= new Date());
+
+                    if (isTrialExpired) {
+                        return res.status(403).json({ error: "O trial gratuito desta loja expirou. O conteúdo está bloqueado até a ativação de um plano." });
+                    }
+
+                    const limits = isTrialActive ? TRIAL_LIMITS : (PLANS[planId] || TRIAL_LIMITS);
 
                     if (store.currentCycleViews >= limits.maxViews) {
                         return res.status(403).json({ error: "Cota mensal de visualizações da loja excedida. O conteúdo está bloqueado até o upgrade do plano." });
@@ -607,9 +616,17 @@ export function registerRoutes(app: Express) {
             // Verificação de Limites do Plano da Loja
             const [activeStore] = await db.select().from(stores).where(and(eq(stores.id, storeId), eq(stores.ownerId, payload.userId)));
             if (!activeStore) return res.status(403).json({ error: "Loja não encontrada ou acesso negado." });
+
             const planId = activeStore.plan as PlanId;
-            const limits = PLANS[planId] || PLANS.free;
-            
+            const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > new Date();
+            const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= new Date());
+
+            if (isTrialExpired) {
+                return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar criando carrosséis.", trialExpired: true });
+            }
+
+            const limits = isTrialActive ? TRIAL_LIMITS : (PLANS[planId] || TRIAL_LIMITS);
+
             const [countRes] = await db.select({ count: sql`count(*)`.mapWith(Number) }).from(videoCarousels).where(eq(videoCarousels.storeId, storeId));
             const count = countRes.count;
 
@@ -747,9 +764,17 @@ export function registerRoutes(app: Express) {
             // Verificação de Limites do Plano da Loja
             const [activeStore] = await db.select().from(stores).where(and(eq(stores.id, storeId), eq(stores.ownerId, payload.userId)));
             if (!activeStore) return res.status(403).json({ error: "Loja não encontrada ou acesso negado." });
+
             const planId = activeStore.plan as PlanId;
-            const limits = PLANS[planId] || PLANS.free;
-            
+            const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > new Date();
+            const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= new Date());
+
+            if (isTrialExpired) {
+                return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar adicionando vídeos.", trialExpired: true });
+            }
+
+            const limits = isTrialActive ? TRIAL_LIMITS : (PLANS[planId] || TRIAL_LIMITS);
+
             const [countRes] = await db.select({ count: sql`count(*)`.mapWith(Number) }).from(shoppableVideos).where(eq(shoppableVideos.storeId, storeId));
             const count = countRes.count;
 
@@ -900,10 +925,9 @@ export function registerRoutes(app: Express) {
         const payload = (req as any).user;
         const { planId, storeId } = req.body;
 
-        if (!planId || !PLANS[planId as PlanId]) return res.status(400).json({ error: "Plano inválido" });
+        if (!planId || !PLANS[planId as PlanId]) return res.status(400).json({ error: "Plano inválido. Escolha: pro, ultra ou gold." });
 
         const plan = PLANS[planId as PlanId];
-        if (plan.price === 0) return res.status(400).json({ error: "Plano gratuito não requer checkout." });
 
         // Validate store belongs to this user
         const [store] = await db.select().from(stores).where(and(eq(stores.id, storeId), eq(stores.ownerId, payload.userId))).limit(1);
@@ -1024,8 +1048,8 @@ export function registerRoutes(app: Express) {
                     const [userRow] = await db.select().from(users).where(eq(users.stripeSubscriptionId, subscription.id)).limit(1);
                     if (userRow) {
                         await db.update(users).set({ subscriptionStatus: "canceled", stripeSubscriptionId: null }).where(eq(users.id, userRow.id));
-                        // Downgrade all stores owned by this user to free
-                        await db.update(stores).set({ plan: "free" }).where(eq(stores.ownerId, userRow.id));
+                        // Downgrade all stores owned by this user back to free (trial expired state)
+                        await db.update(stores).set({ plan: "free", trialEndsAt: null }).where(eq(stores.ownerId, userRow.id));
                     }
                 }
             }

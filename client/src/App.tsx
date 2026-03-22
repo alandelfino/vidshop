@@ -13,6 +13,7 @@ import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import StoresPage from "./pages/StoresPage";
 import StoreSettingsPage from "./pages/StoreSettingsPage";
+import BillingPage from "./pages/BillingPage";
 import { StoreProvider } from "./context/StoreContext";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="carousels/new" element={<CarouselEditorPage />} />
           <Route path="carousels/edit/:id" element={<CarouselEditorPage />} />
           <Route path="settings" element={<StoreSettingsPage />} />
+          <Route path="billing" element={<BillingPage />} />
           <Route path="*" element={
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <p className="text-sm text-muted-foreground">Página em construção.</p>

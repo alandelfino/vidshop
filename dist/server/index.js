@@ -1,10 +1,138 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// server/upload.ts
+import multer from "multer";
+import multerS3 from "multer-s3";
+import { S3Client } from "@aws-sdk/client-s3";
+import path2 from "path";
+import { v4 as uuidv4 } from "uuid";
+function fileFilter(_req, file, cb) {
+  if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Tipo de arquivo n\xE3o permitido. Somente imagens e v\xEDdeos s\xE3o aceitos."));
+  }
+}
+var R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, s3Client, storage, upload;
+var init_upload = __esm({
+  "server/upload.ts"() {
+    "use strict";
+    R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+    R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+    R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+    R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
+      console.warn("Aviso: Credenciais do Cloudflare R2 n\xE3o est\xE3o totalmente configuradas no .env. O upload falhar\xE1.");
+    }
+    s3Client = new S3Client({
+      region: "auto",
+      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID || "",
+        secretAccessKey: R2_SECRET_ACCESS_KEY || ""
+      }
+    });
+    storage = multerS3({
+      s3: s3Client,
+      bucket: R2_BUCKET || "",
+      contentType: multerS3.AUTO_CONTENT_TYPE,
+      key: function(_req, file, cb) {
+        const ext = path2.extname(file.originalname);
+        cb(null, `${uuidv4()}${ext}`);
+      }
+    });
+    upload = multer({
+      storage,
+      fileFilter,
+      limits: { fileSize: 100 * 1024 * 1024 }
+      // 100 MB
+    });
+  }
+});
+
+// server/ffmpeg.ts
+var ffmpeg_exports = {};
+__export(ffmpeg_exports, {
+  extractFramesToR2: () => extractFramesToR2
+});
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import ffprobeInstaller from "@ffprobe-installer/ffprobe";
+import fs3 from "fs/promises";
+import path4 from "path";
+import os from "os";
+import { v4 as uuidv42 } from "uuid";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+async function extractFramesToR2(videoUrl) {
+  const tmpDir = await fs3.mkdtemp(path4.join(os.tmpdir(), "vidshop-frames-"));
+  return new Promise((resolve, reject) => {
+    ffmpeg(videoUrl).screenshots({
+      count: 5,
+      folder: tmpDir,
+      filename: "thumbnail-at-%i.jpg",
+      size: "640x?"
+    }).on("end", async () => {
+      try {
+        const files = await fs3.readdir(tmpDir);
+        const urls = [];
+        const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+        const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+        if (!bucket)
+          throw new Error("CLOUDFLARE_R2_BUCKET_NAME not set");
+        for (const file of files) {
+          const filePath = path4.join(tmpDir, file);
+          const buffer = await fs3.readFile(filePath);
+          const key = `thumbnails/${uuidv42()}.jpg`;
+          await s3Client.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: buffer,
+            ContentType: "image/jpeg"
+          }));
+          const finalUrl = publicDomain ? `${publicDomain.replace(/\/$/, "")}/${key}` : `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${bucket}/${key}`;
+          urls.push(finalUrl);
+        }
+        for (const file of files) {
+          await fs3.unlink(path4.join(tmpDir, file));
+        }
+        await fs3.rmdir(tmpDir);
+        resolve(urls);
+      } catch (e) {
+        reject(e);
+      }
+    }).on("error", async (err) => {
+      try {
+        const files = await fs3.readdir(tmpDir).catch(() => []);
+        for (const file of files)
+          await fs3.unlink(path4.join(tmpDir, file)).catch(() => {
+          });
+        await fs3.rmdir(tmpDir).catch(() => {
+        });
+      } catch (e) {
+      }
+      reject(err);
+    });
+  });
+}
+var init_ffmpeg = __esm({
+  "server/ffmpeg.ts"() {
+    "use strict";
+    init_upload();
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path || ffmpegInstaller.default?.path);
+    ffmpeg.setFfprobePath(ffprobeInstaller.path || ffprobeInstaller.default?.path);
+  }
+});
+
 // server/index.ts
+import "express-async-errors";
 import dotenv3 from "dotenv";
 import express2 from "express";
 import cors from "cors";
@@ -62,9 +190,10 @@ __export(schema_exports, {
   stores: () => stores,
   users: () => users,
   videoCarousels: () => videoCarousels,
-  videoProducts: () => videoProducts
+  videoProducts: () => videoProducts,
+  viewEvents: () => viewEvents
 });
-import { pgTable, serial, text, integer, timestamp, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, boolean, unique, jsonb } from "drizzle-orm/pg-core";
 var users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -73,6 +202,11 @@ var users = pgTable("users", {
   isEmailVerified: boolean("is_email_verified").notNull().default(false),
   verificationCode: text("verification_code"),
   verificationCodeExpiresAt: timestamp("verification_code_expires_at"),
+  // Billing and Features
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  subscriptionStatus: text("subscription_status"),
+  // active, past_due, canceled
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 var stores = pgTable("stores", {
@@ -80,6 +214,12 @@ var stores = pgTable("stores", {
   name: text("name").notNull(),
   ownerId: integer("owner_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   allowedDomain: text("allowed_domain"),
+  // Billing specific to this store
+  plan: text("plan").notNull().default("free"),
+  // free (trial/expired), pro, ultra, gold
+  trialEndsAt: timestamp("trial_ends_at"),
+  // set on store creation, expires after 14 days
+  currentCycleViews: integer("current_cycle_views").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -140,6 +280,7 @@ var shoppableVideos = pgTable("shoppable_videos", {
   storeId: integer("store_id").references(() => stores.id, { onDelete: "cascade" }),
   mediaUrl: text("media_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
+  autoThumbnails: jsonb("auto_thumbnails").$type(),
   title: text("title").notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").notNull().defaultNow()
@@ -173,6 +314,16 @@ var carouselVideos = pgTable("carousel_videos", {
   videoId: integer("video_id").references(() => shoppableVideos.id, { onDelete: "cascade" }).notNull(),
   position: integer("position").notNull().default(0)
 });
+var viewEvents = pgTable("view_events", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id, { onDelete: "cascade" }).notNull(),
+  carouselId: integer("carousel_id").references(() => videoCarousels.id, { onDelete: "cascade" }).notNull(),
+  date: text("date").notNull(),
+  // ISO date string: 'YYYY-MM-DD'
+  count: integer("count").notNull().default(0)
+}, (t) => ({
+  unq: unique("view_events_store_carousel_date_idx").on(t.storeId, t.carouselId, t.date)
+}));
 
 // server/db.ts
 import dotenv from "dotenv";
@@ -182,49 +333,8 @@ var pool = new Pool({
 });
 var db = drizzle(pool, { schema: schema_exports });
 
-// server/upload.ts
-import multer from "multer";
-import multerS3 from "multer-s3";
-import { S3Client } from "@aws-sdk/client-s3";
-import path2 from "path";
-import { v4 as uuidv4 } from "uuid";
-var R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-var R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
-var R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
-var R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME;
-if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
-  console.warn("Aviso: Credenciais do Cloudflare R2 n\xE3o est\xE3o totalmente configuradas no .env. O upload falhar\xE1.");
-}
-var s3Client = new S3Client({
-  region: "auto",
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID || "",
-    secretAccessKey: R2_SECRET_ACCESS_KEY || ""
-  }
-});
-var storage = multerS3({
-  s3: s3Client,
-  bucket: R2_BUCKET || "",
-  contentType: multerS3.AUTO_CONTENT_TYPE,
-  key: function(_req, file, cb) {
-    const ext = path2.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  }
-});
-function fileFilter(_req, file, cb) {
-  if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
-    cb(null, true);
-  } else {
-    cb(new Error("Tipo de arquivo n\xE3o permitido. Somente imagens e v\xEDdeos s\xE3o aceitos."));
-  }
-}
-var upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 100 * 1024 * 1024 }
-  // 100 MB
-});
+// server/routes.ts
+init_upload();
 
 // server/email.ts
 import { Resend } from "resend";
@@ -234,8 +344,7 @@ var resend = new Resend(process.env.RESEND_API_TOKEN);
 async function sendVerificationEmail(to, code) {
   try {
     const data = await resend.emails.send({
-      from: "VidShop <onboarding@resend.dev>",
-      // replace with your verified domain in production
+      from: "VidShop <suporte@vidshop.com.br>",
       to: [to],
       subject: "VidShop - C\xF3digo de Verifica\xE7\xE3o",
       html: `
@@ -449,7 +558,7 @@ async function processQueue() {
 
 // server/routes.ts
 import multer2 from "multer";
-import { v4 as uuidv42 } from "uuid";
+import { v4 as uuidv43 } from "uuid";
 
 // server/embed/styles.ts
 var embedStyles = function injectStyles() {
@@ -1073,12 +1182,75 @@ async function purgeCloudflareCache(urls) {
   }
 }
 
+// server/stripe.ts
+import Stripe from "stripe";
+var stripeSecretKey = process.env.STRIPE_SECRET_KEY || "sk_test_dummy";
+var stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2023-10-16"
+});
+var PLANS = {
+  pro: {
+    name: "Pro",
+    price: 3990,
+    // cents
+    priceId: process.env.STRIPE_PRICE_ID_PRO || "price_pro_dummy",
+    maxCarousels: 2,
+    maxVideos: 50,
+    maxViews: 1e4
+  },
+  ultra: {
+    name: "Ultra",
+    price: 9990,
+    priceId: process.env.STRIPE_PRICE_ID_ULTRA || "price_ultra_dummy",
+    maxCarousels: Infinity,
+    maxVideos: Infinity,
+    maxViews: 5e4
+  },
+  gold: {
+    name: "Gold",
+    price: 29990,
+    priceId: process.env.STRIPE_PRICE_ID_GOLD || "price_gold_dummy",
+    maxCarousels: Infinity,
+    maxVideos: Infinity,
+    maxViews: Infinity
+  }
+};
+var TRIAL_LIMITS = {
+  name: "Trial",
+  maxCarousels: 2,
+  maxVideos: 50,
+  maxViews: 1e4
+};
+
+// server/view-tracker.ts
+var DEBOUNCE_MS = 6e4;
+var cache = /* @__PURE__ */ new Map();
+function shouldCountView(carouselId, ip) {
+  const key = `${carouselId}:${ip}`;
+  const now = Date.now();
+  const expiresAt = cache.get(key);
+  if (expiresAt && now < expiresAt)
+    return false;
+  cache.set(key, now + DEBOUNCE_MS);
+  return true;
+}
+function todayUTC() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, exp] of cache.entries()) {
+    if (now >= exp)
+      cache.delete(key);
+  }
+}, 5 * 6e4).unref();
+
 // server/routes.ts
 var JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 var xmlUpload = multer2({
   storage: multer2.diskStorage({
     destination: "uploads",
-    filename: (_req, file, cb) => cb(null, `${uuidv42()}.xml`)
+    filename: (_req, file, cb) => cb(null, `${uuidv43()}.xml`)
   }),
   limits: { fileSize: 1024 * 1024 * 500 }
   // 500MB limit for massive catalogs
@@ -1139,6 +1311,25 @@ function registerRoutes(app2) {
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
   });
+  app2.post("/api/auth/resend", async (req, res) => {
+    const { email } = req.body;
+    if (!email)
+      return res.status(400).json({ error: "E-mail \xE9 obrigat\xF3rio." });
+    const [user] = await db.select().from(users).where(eq3(users.email, email)).limit(1);
+    if (!user)
+      return res.status(404).json({ error: "Usu\xE1rio n\xE3o encontrado." });
+    if (user.isEmailVerified)
+      return res.status(400).json({ error: "E-mail j\xE1 verificado." });
+    const verificationCode = Math.floor(1e5 + Math.random() * 9e5).toString();
+    const verificationCodeExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
+    await db.update(users).set({ verificationCode, verificationCodeExpiresAt }).where(eq3(users.id, user.id));
+    try {
+      await sendVerificationEmail(email, verificationCode);
+    } catch (e) {
+      console.error("Failed to resend verification email", e);
+    }
+    res.json({ success: true, message: "C\xF3digo reenviado com sucesso." });
+  });
   app2.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -1151,7 +1342,7 @@ function registerRoutes(app2) {
       return;
     }
     if (!user.isEmailVerified) {
-      res.status(403).json({ error: "Por favor, verifique seu e-mail antes de fazer login." });
+      res.status(403).json({ error: "Por favor, verifique seu e-mail antes de fazer login.", unverified: true });
       return;
     }
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, {
@@ -1161,7 +1352,13 @@ function registerRoutes(app2) {
   });
   app2.get("/api/auth/me", authMiddleware, async (req, res) => {
     const payload = req.user;
-    const [user] = await db.select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt }).from(users).where(eq3(users.id, payload.userId)).limit(1);
+    const [user] = await db.select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      createdAt: users.createdAt,
+      subscriptionStatus: users.subscriptionStatus
+    }).from(users).where(eq3(users.id, payload.userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "Usu\xE1rio n\xE3o encontrado" });
       return;
@@ -1176,15 +1373,18 @@ function registerRoutes(app2) {
   app2.post("/api/stores", authMiddleware, async (req, res) => {
     const payload = req.user;
     const { name, allowedDomain } = req.body;
-    if (!name)
-      return res.status(400).json({ error: "Nome da loja \xE9 obrigat\xF3rio" });
-    const [store] = await db.insert(stores).values({ name, allowedDomain, ownerId: payload.userId }).returning();
+    if (!name || !allowedDomain)
+      return res.status(400).json({ error: "Nome da loja e dom\xEDnio s\xE3o obrigat\xF3rios" });
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1e3);
+    const [store] = await db.insert(stores).values({ name, allowedDomain, plan: "free", trialEndsAt, ownerId: payload.userId }).returning();
     res.status(201).json({ store });
   });
   app2.put("/api/stores/:id", authMiddleware, async (req, res) => {
     const payload = req.user;
     const storeId = parseInt(req.params.id);
     const { name, allowedDomain } = req.body;
+    if (!name || !allowedDomain)
+      return res.status(400).json({ error: "Nome da loja e dom\xEDnio s\xE3o obrigat\xF3rios" });
     const [existing] = await db.select().from(stores).where(and(eq3(stores.id, storeId), eq3(stores.ownerId, payload.userId))).limit(1);
     if (!existing)
       return res.status(404).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
@@ -1261,6 +1461,25 @@ function registerRoutes(app2) {
     await db.delete(media).where(and(eq3(media.id, id), eq3(media.storeId, storeId)));
     res.json({ success: true });
   });
+  app2.post("/api/videos/:id/extract-thumbs", authMiddleware, async (req, res) => {
+    try {
+      const storeId = getStoreId(req);
+      const videoId = parseInt(req.params.id);
+      const [video] = await db.select().from(shoppableVideos).where(and(eq3(shoppableVideos.id, videoId), eq3(shoppableVideos.storeId, storeId)));
+      if (!video)
+        return res.status(404).json({ error: "V\xEDdeo n\xE3o encontrado" });
+      if (video.autoThumbnails && video.autoThumbnails.length > 0) {
+        return res.json({ urls: video.autoThumbnails });
+      }
+      const { extractFramesToR2: extractFramesToR22 } = await Promise.resolve().then(() => (init_ffmpeg(), ffmpeg_exports));
+      const urls = await extractFramesToR22(video.mediaUrl);
+      await db.update(shoppableVideos).set({ autoThumbnails: urls }).where(eq3(shoppableVideos.id, videoId));
+      res.json({ urls });
+    } catch (e) {
+      console.error("Frame extraction error:", e);
+      res.status(500).json({ error: e.message || "Failed to extract frames" });
+    }
+  });
   app2.post(
     "/api/catalog/import",
     authMiddleware,
@@ -1333,7 +1552,7 @@ function registerRoutes(app2) {
   app2.get("/api/public/carousels/:id", async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET");
-    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=86400");
+    res.setHeader("Cache-Control", "no-store");
     try {
       const carouselId = parseInt(req.params.id);
       if (isNaN(carouselId))
@@ -1341,13 +1560,27 @@ function registerRoutes(app2) {
       const [carousel] = await db.select().from(videoCarousels).where(eq3(videoCarousels.id, carouselId));
       if (!carousel)
         return res.status(404).json({ error: "Carrossel n\xE3o encontrado" });
+      let targetStore = null;
       if (carousel.storeId) {
         const [store] = await db.select().from(stores).where(eq3(stores.id, carousel.storeId));
-        if (store && store.allowedDomain) {
-          const origin = req.headers.origin || req.headers.referer;
-          if (origin && !origin.includes(store.allowedDomain)) {
-            return res.status(403).json({ error: "Dom\xEDnio n\xE3o autorizado para este carrossel." });
+        if (store) {
+          if (store.allowedDomain) {
+            const origin = req.headers.origin || req.headers.referer;
+            if (origin && !origin.includes(store.allowedDomain)) {
+              return res.status(403).json({ error: "Dom\xEDnio n\xE3o autorizado para este carrossel." });
+            }
           }
+          const planId = store.plan;
+          const isTrialActive = store.plan === "free" && store.trialEndsAt && store.trialEndsAt > /* @__PURE__ */ new Date();
+          const isTrialExpired = store.plan === "free" && (!store.trialEndsAt || store.trialEndsAt <= /* @__PURE__ */ new Date());
+          if (isTrialExpired) {
+            return res.status(403).json({ error: "O trial gratuito desta loja expirou. O conte\xFAdo est\xE1 bloqueado at\xE9 a ativa\xE7\xE3o de um plano." });
+          }
+          const limits = isTrialActive ? TRIAL_LIMITS : PLANS[planId] || TRIAL_LIMITS;
+          if (store.currentCycleViews >= limits.maxViews) {
+            return res.status(403).json({ error: "Cota mensal de visualiza\xE7\xF5es da loja excedida. O conte\xFAdo est\xE1 bloqueado at\xE9 o upgrade do plano." });
+          }
+          targetStore = store;
         }
       }
       const cv = await db.select({
@@ -1387,6 +1620,20 @@ function registerRoutes(app2) {
         });
       }
       res.json({ carousel, videos: cv.map((r) => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] })) });
+      if (targetStore) {
+        const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+        if (shouldCountView(carouselId, ip)) {
+          const storeId = targetStore.id;
+          const today = todayUTC();
+          db.update(stores).set({ currentCycleViews: sql2`${stores.currentCycleViews} + 1` }).where(eq3(stores.id, storeId)).catch((err) => console.error("[view-tracker] store increment failed:", err));
+          db.execute(sql2`
+                        INSERT INTO view_events (store_id, carousel_id, date, count)
+                        VALUES (${storeId}, ${carouselId}, ${today}, 1)
+                        ON CONFLICT (store_id, carousel_id, date)
+                        DO UPDATE SET count = view_events.count + 1
+                    `).catch((err) => console.error("[view-tracker] daily upsert failed:", err));
+        }
+      }
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -1418,14 +1665,56 @@ function registerRoutes(app2) {
         id: shoppableVideos.id,
         title: shoppableVideos.title,
         description: shoppableVideos.description,
-        mediaUrl: shoppableVideos.mediaUrl
+        mediaUrl: shoppableVideos.mediaUrl,
+        thumbnailUrl: shoppableVideos.thumbnailUrl
       }
     }).from(carouselVideos).innerJoin(shoppableVideos, eq3(carouselVideos.videoId, shoppableVideos.id)).where(eq3(carouselVideos.carouselId, carouselId)).orderBy(carouselVideos.position);
-    res.json({ carousel, videos: cv });
+    const videoIds = cv.map((r) => r.videoId);
+    let productsByVideo = {};
+    if (videoIds.length > 0) {
+      const vp = await db.select({
+        videoId: videoProducts.videoId,
+        startTime: videoProducts.startTime,
+        endTime: videoProducts.endTime,
+        product: {
+          id: products.id,
+          title: products.title,
+          price: products.price,
+          imageLink: products.imageLink,
+          link: products.link
+        }
+      }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(inArray(videoProducts.videoId, videoIds)).orderBy(videoProducts.startTime);
+      vp.forEach((record) => {
+        if (!productsByVideo[record.videoId])
+          productsByVideo[record.videoId] = [];
+        productsByVideo[record.videoId].push({
+          startTime: record.startTime,
+          endTime: record.endTime,
+          ...record.product
+        });
+      });
+    }
+    res.json({ carousel, videos: cv.map((r) => ({ ...r, video: { ...r.video, productsList: productsByVideo[r.videoId] || [] } })) });
   });
   app2.post("/api/carousels", authMiddleware, async (req, res) => {
     try {
       const storeId = getStoreId(req);
+      const payload = req.user;
+      const [activeStore] = await db.select().from(stores).where(and(eq3(stores.id, storeId), eq3(stores.ownerId, payload.userId)));
+      if (!activeStore)
+        return res.status(403).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
+      const planId = activeStore.plan;
+      const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > /* @__PURE__ */ new Date();
+      const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= /* @__PURE__ */ new Date());
+      if (isTrialExpired) {
+        return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar criando carross\xE9is.", trialExpired: true });
+      }
+      const limits = isTrialActive ? TRIAL_LIMITS : PLANS[planId] || TRIAL_LIMITS;
+      const [countRes] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(videoCarousels).where(eq3(videoCarousels.storeId, storeId));
+      const count = countRes.count;
+      if (count >= limits.maxCarousels) {
+        return res.status(403).json({ error: `Limite atingido. Voc\xEA pode criar at\xE9 ${limits.maxCarousels} carrossel(eis) no plano ${limits.name}. Fa\xE7a o upgrade para expandir.` });
+      }
       const { name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime } = req.body;
       const [carousel] = await db.insert(videoCarousels).values({
         storeId,
@@ -1480,7 +1769,32 @@ function registerRoutes(app2) {
   app2.get("/api/videos", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
     const list = await db.select().from(shoppableVideos).where(eq3(shoppableVideos.storeId, storeId)).orderBy(desc(shoppableVideos.createdAt));
-    res.json({ videos: list });
+    const videoIds = list.map((v) => v.id);
+    let productsByVideo = {};
+    if (videoIds.length > 0) {
+      const vp = await db.select({
+        videoId: videoProducts.videoId,
+        startTime: videoProducts.startTime,
+        endTime: videoProducts.endTime,
+        product: {
+          id: products.id,
+          title: products.title,
+          price: products.price,
+          imageLink: products.imageLink,
+          link: products.link
+        }
+      }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(inArray(videoProducts.videoId, videoIds)).orderBy(videoProducts.startTime);
+      vp.forEach((record) => {
+        if (!productsByVideo[record.videoId])
+          productsByVideo[record.videoId] = [];
+        productsByVideo[record.videoId].push({
+          startTime: record.startTime,
+          endTime: record.endTime,
+          ...record.product
+        });
+      });
+    }
+    res.json({ videos: list.map((v) => ({ ...v, productsList: productsByVideo[v.id] || [] })) });
   });
   app2.get("/api/videos/:id", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
@@ -1506,6 +1820,22 @@ function registerRoutes(app2) {
   app2.post("/api/videos", authMiddleware, async (req, res) => {
     try {
       const storeId = getStoreId(req);
+      const payload = req.user;
+      const [activeStore] = await db.select().from(stores).where(and(eq3(stores.id, storeId), eq3(stores.ownerId, payload.userId)));
+      if (!activeStore)
+        return res.status(403).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
+      const planId = activeStore.plan;
+      const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > /* @__PURE__ */ new Date();
+      const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= /* @__PURE__ */ new Date());
+      if (isTrialExpired) {
+        return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar adicionando v\xEDdeos.", trialExpired: true });
+      }
+      const limits = isTrialActive ? TRIAL_LIMITS : PLANS[planId] || TRIAL_LIMITS;
+      const [countRes] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(shoppableVideos).where(eq3(shoppableVideos.storeId, storeId));
+      const count = countRes.count;
+      if (count >= limits.maxVideos) {
+        return res.status(403).json({ error: `Limite atingido. Voc\xEA pode estocar at\xE9 ${limits.maxVideos} v\xEDdeo(s) no plano ${limits.name}. Fa\xE7a o upgrade para expandir.` });
+      }
       const { title, description, mediaUrl, thumbnailUrl } = req.body;
       const [video] = await db.insert(shoppableVideos).values({ storeId, title: title || "Novo V\xEDdeo", description, mediaUrl, thumbnailUrl }).returning();
       res.status(201).json({ video });
@@ -1609,6 +1939,156 @@ function registerRoutes(app2) {
     }
     res.json({ success: true });
   });
+  app2.post("/api/stripe/checkout", authMiddleware, async (req, res) => {
+    const payload = req.user;
+    const { planId, storeId } = req.body;
+    if (!planId || !PLANS[planId])
+      return res.status(400).json({ error: "Plano inv\xE1lido. Escolha: pro, ultra ou gold." });
+    const plan = PLANS[planId];
+    const [store] = await db.select().from(stores).where(and(eq3(stores.id, storeId), eq3(stores.ownerId, payload.userId))).limit(1);
+    if (!store)
+      return res.status(403).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
+    try {
+      const [owner] = await db.select().from(users).where(eq3(users.id, payload.userId)).limit(1);
+      let customerId = owner.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({ email: owner.email, name: owner.name });
+        customerId = customer.id;
+        await db.update(users).set({ stripeCustomerId: customerId }).where(eq3(users.id, owner.id));
+      }
+      const publicUrl = process.env.PUBLIC_URL || "http://localhost:5000";
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ["card"],
+        line_items: [{ price: plan.priceId, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${publicUrl}/dashboard/billing?success=true`,
+        cancel_url: `${publicUrl}/dashboard/billing?canceled=true`,
+        // Pass both storeId and planId so the webhook knows what to update
+        metadata: { storeId: storeId.toString(), planId, userId: owner.id.toString() }
+      });
+      res.json({ url: session.url });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.post("/api/stripe/portal", authMiddleware, async (req, res) => {
+    const payload = req.user;
+    const [owner] = await db.select().from(users).where(eq3(users.id, payload.userId)).limit(1);
+    if (!owner.stripeCustomerId)
+      return res.status(400).json({ error: "Conta Stripe n\xE3o configurada para este usu\xE1rio." });
+    try {
+      const publicUrl = process.env.PUBLIC_URL || "http://localhost:5000";
+      const session = await stripe.billingPortal.sessions.create({
+        customer: owner.stripeCustomerId,
+        return_url: `${publicUrl}/dashboard/billing`
+      });
+      res.json({ url: session.url });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.post("/api/stripe/webhook", async (req, res) => {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    let event;
+    if (webhookSecret) {
+      const sig = req.headers["stripe-signature"];
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } catch (err) {
+        console.error("[webhook] Signature verification failed:", err.message);
+        return res.status(400).json({ error: `Webhook signature failed: ${err.message}` });
+      }
+    } else {
+      event = req.body;
+    }
+    try {
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        const storeId = parseInt(session.metadata?.storeId || "0");
+        const planId = session.metadata?.planId;
+        const userId = parseInt(session.metadata?.userId || "0");
+        if (storeId && planId) {
+          await db.update(stores).set({
+            plan: planId,
+            currentCycleViews: 0
+          }).where(eq3(stores.id, storeId));
+        }
+        if (userId && session.subscription) {
+          await db.update(users).set({
+            stripeSubscriptionId: session.subscription,
+            subscriptionStatus: "active"
+          }).where(eq3(users.id, userId));
+        }
+      } else if (event.type === "invoice.payment_succeeded") {
+        const invoice = event.data.object;
+        if (invoice.subscription) {
+          const [userRow] = await db.select().from(users).where(eq3(users.stripeSubscriptionId, invoice.subscription)).limit(1);
+          if (userRow) {
+            await db.update(users).set({ subscriptionStatus: "active" }).where(eq3(users.id, userRow.id));
+            await db.update(stores).set({ currentCycleViews: 0 }).where(eq3(stores.ownerId, userRow.id));
+          }
+        }
+      } else if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
+        const subscription = event.data.object;
+        const isCanceled = ["canceled", "unpaid", "incomplete_expired"].includes(subscription.status);
+        if (isCanceled) {
+          const [userRow] = await db.select().from(users).where(eq3(users.stripeSubscriptionId, subscription.id)).limit(1);
+          if (userRow) {
+            await db.update(users).set({ subscriptionStatus: "canceled", stripeSubscriptionId: null }).where(eq3(users.id, userRow.id));
+            await db.update(stores).set({ plan: "free", trialEndsAt: null }).where(eq3(stores.ownerId, userRow.id));
+          }
+        }
+      }
+      res.json({ received: true });
+    } catch (e) {
+      console.error("[webhook] Processing failed:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.delete("/api/products/:id", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "ID inv\xE1lido" });
+      return;
+    }
+    const [deleted] = await db.delete(products).where(and(eq3(products.id, id), eq3(products.storeId, storeId))).returning();
+    if (!deleted) {
+      res.status(404).json({ error: "Produto n\xE3o encontrado" });
+      return;
+    }
+    res.json({ success: true });
+  });
+  app2.get("/api/analytics/views", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const { from, to } = req.query;
+    if (!from || !to)
+      return res.status(400).json({ error: "from e to s\xE3o obrigat\xF3rios (YYYY-MM-DD)" });
+    try {
+      const rows = await db.execute(sql2`
+                SELECT date, SUM(count)::int AS total
+                FROM view_events
+                WHERE store_id = ${storeId}
+                  AND date >= ${from}
+                  AND date <= ${to}
+                GROUP BY date
+                ORDER BY date ASC
+            `);
+      const byDay = rows.rows.map((r) => ({ date: r.date, views: r.total }));
+      const total = byDay.reduce((acc, r) => acc + r.views, 0);
+      res.json({ total, byDay });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.use((err, req, res, next) => {
+    if (err.message === "x-store-id header is missing") {
+      return res.status(400).json({ error: "Loja n\xE3o selecionada ou header x-store-id ausente." });
+    }
+    console.error("Unhandled Error:", err);
+    res.status(500).json({ error: err.message || "Erro interno do servidor." });
+  });
 }
 
 // server/syncScheduler.ts
@@ -1642,15 +2122,16 @@ function startSyncScheduler() {
 }
 
 // server/index.ts
-import path4 from "path";
+import path5 from "path";
 import { eq as eq5 } from "drizzle-orm";
 dotenv3.config();
 var app = express2();
 app.use(cors({ origin: "*" }));
 var server = createServer(app);
+app.use("/api/stripe/webhook", express2.raw({ type: "application/json" }));
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
-app.use("/uploads", express2.static(path4.resolve("uploads")));
+app.use("/uploads", express2.static(path5.resolve("uploads")));
 registerRoutes(app);
 await setupVite(app, server);
 await db.update(catalogImports).set({ status: "failed", error: "Interrompido pela reinicializa\xE7\xE3o do servidor" }).where(eq5(catalogImports.status, "processing"));

@@ -1,0 +1,1 @@
+ALTER TABLE "stores" ALTER COLUMN "plan" SET DEFAULT 'free';
