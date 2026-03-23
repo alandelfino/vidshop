@@ -29,6 +29,13 @@
       "when": 1774296059557,
       "tag": "0003_short_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774306349083,
+      "tag": "0004_ancient_roland_deschain",
+      "breakpoints": true
     }
   ]
 }

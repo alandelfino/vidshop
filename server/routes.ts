@@ -663,7 +663,11 @@ export function registerRoutes(app: Express) {
                 return res.status(403).json({ error: `Limite atingido. Você pode criar até ${limits.maxCarousels} carrossel(eis) no plano ${limits.name}. Faça o upgrade para expandir.` });
             }
 
-            const { name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime } = req.body;
+            const { 
+                name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
+                maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+                paddingTop, paddingRight, paddingBottom, paddingLeft 
+            } = req.body;
             const [carousel] = await db.insert(videoCarousels).values({
                 storeId,
                 name: name || "Novo Carrossel",
@@ -674,6 +678,15 @@ export function registerRoutes(app: Express) {
                 layout: layout || "3d-card",
                 showProducts: showProducts ?? true,
                 previewTime: previewTime ?? 3,
+                maxWidth: maxWidth || "100%",
+                marginTop: marginTop || "0px",
+                marginRight: marginRight || "0px",
+                marginBottom: marginBottom || "0px",
+                marginLeft: marginLeft || "0px",
+                paddingTop: paddingTop || "0px",
+                paddingRight: paddingRight || "0px",
+                paddingBottom: paddingBottom || "0px",
+                paddingLeft: paddingLeft || "0px",
             }).returning();
             res.status(201).json({ carousel });
         } catch (e: any) {
@@ -684,10 +697,19 @@ export function registerRoutes(app: Express) {
     app.put("/api/carousels/:id", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
         const carouselId = parseInt(req.params.id);
-        const { name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoIds } = req.body;
+        const { 
+            name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoIds,
+            maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+            paddingTop, paddingRight, paddingBottom, paddingLeft 
+        } = req.body;
         try {
             const [updated] = await db.update(videoCarousels)
-                .set({ name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, updatedAt: new Date() })
+                .set({ 
+                    name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, 
+                    maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+                    paddingTop, paddingRight, paddingBottom, paddingLeft,
+                    updatedAt: new Date() 
+                })
                 .where(and(eq(videoCarousels.id, carouselId), eq(videoCarousels.storeId, storeId)))
                 .returning();
 
@@ -733,7 +755,11 @@ export function registerRoutes(app: Express) {
 
     app.post("/api/stories", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
-        const { name, title, shape, borderGradient, borderEnabled } = req.body;
+        const { 
+            name, title, shape, borderGradient, borderEnabled, showProducts,
+            maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+            paddingTop, paddingRight, paddingBottom, paddingLeft
+        } = req.body;
         if (!name) return res.status(400).json({ error: "Nome da story é obrigatório" });
 
         const [story] = await db.insert(videoStories).values({
@@ -743,6 +769,16 @@ export function registerRoutes(app: Express) {
             shape: shape || "round",
             borderGradient: borderGradient || "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
             borderEnabled: borderEnabled ?? true,
+            showProducts: showProducts ?? true,
+            maxWidth: maxWidth || "100%",
+            marginTop: marginTop || "0px",
+            marginRight: marginRight || "0px",
+            marginBottom: marginBottom || "0px",
+            marginLeft: marginLeft || "0px",
+            paddingTop: paddingTop || "0px",
+            paddingRight: paddingRight || "0px",
+            paddingBottom: paddingBottom || "0px",
+            paddingLeft: paddingLeft || "0px",
         }).returning();
 
         res.status(201).json({ story });
@@ -755,7 +791,7 @@ export function registerRoutes(app: Express) {
         const [story] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
         if (!story) return res.status(404).json({ error: "Story não encontrada" });
 
-        const videos = await db.select({
+        const videosRaw = await db.select({
             id: shoppableVideos.id,
             title: shoppableVideos.title,
             mediaUrl: shoppableVideos.mediaUrl,
@@ -767,13 +803,49 @@ export function registerRoutes(app: Express) {
         .where(eq(storyVideos.storyId, storyId))
         .orderBy(storyVideos.position);
 
+        const videoIds = videosRaw.map(v => v.id);
+        let productsByVideo: Record<number, any[]> = {};
+
+        if (videoIds.length > 0) {
+            const vp = await db.select({
+                videoId: videoProducts.videoId,
+                startTime: videoProducts.startTime,
+                endTime: videoProducts.endTime,
+                product: {
+                    id: products.id, title: products.title, price: products.price, imageLink: products.imageLink, link: products.link
+                }
+            })
+            .from(videoProducts)
+            .innerJoin(products, eq(videoProducts.productId, products.id))
+            .where(inArray(videoProducts.videoId, videoIds))
+            .orderBy(videoProducts.startTime);
+
+            vp.forEach(record => {
+                if (!productsByVideo[record.videoId]) productsByVideo[record.videoId] = [];
+                productsByVideo[record.videoId].push({
+                    startTime: record.startTime,
+                    endTime: record.endTime,
+                    ...record.product
+                });
+            });
+        }
+
+        const videos = videosRaw.map(v => ({
+            ...v,
+            productsList: productsByVideo[v.id] || []
+        }));
+
         res.json({ ...story, videos });
     });
 
     app.put("/api/stories/:id", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
         const storyId = parseInt(req.params.id);
-        const { name, title, shape, borderGradient, borderEnabled, videos } = req.body;
+        const { 
+            name, title, shape, borderGradient, borderEnabled, showProducts, videos,
+            maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+            paddingTop, paddingRight, paddingBottom, paddingLeft
+        } = req.body;
 
         const [existing] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
         if (!existing) return res.status(404).json({ error: "Story não encontrada" });
@@ -784,6 +856,16 @@ export function registerRoutes(app: Express) {
             shape,
             borderGradient,
             borderEnabled,
+            showProducts,
+            maxWidth,
+            marginTop,
+            marginRight,
+            marginBottom,
+            marginLeft,
+            paddingTop,
+            paddingRight,
+            paddingBottom,
+            paddingLeft,
             updatedAt: new Date(),
         })
         .where(eq(videoStories.id, storyId))

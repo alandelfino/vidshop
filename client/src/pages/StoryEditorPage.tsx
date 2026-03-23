@@ -17,6 +17,7 @@ interface ShoppableVideo {
   description: string | null;
   mediaUrl: string;
   thumbnailUrl?: string | null;
+  productsList?: any[];
 }
 
 interface StoryVideoEntry {
@@ -36,12 +37,24 @@ export default function StoryEditorPage() {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [shape, setShape] = useState("round");
+  const [showProducts, setShowProducts] = useState(true);
   
   // Customization
   const [color1, setColor1] = useState("#f09433");
   const [color2, setColor2] = useState("#bc1888");
   const [angle, setAngle] = useState(45);
   const [borderEnabled, setBorderEnabled] = useState(true);
+
+  // Layout customization
+  const [maxWidth, setMaxWidth] = useState("100%");
+  const [marginTop, setMarginTop] = useState("0px");
+  const [marginRight, setMarginRight] = useState("0px");
+  const [marginBottom, setMarginBottom] = useState("0px");
+  const [marginLeft, setMarginLeft] = useState("0px");
+  const [paddingTop, setPaddingTop] = useState("0px");
+  const [paddingRight, setPaddingRight] = useState("0px");
+  const [paddingBottom, setPaddingBottom] = useState("0px");
+  const [paddingLeft, setPaddingLeft] = useState("0px");
   
   const [videoList, setVideoList] = useState<StoryVideoEntry[]>([]);
 
@@ -70,6 +83,7 @@ export default function StoryEditorPage() {
         setName(data.name || "");
         setTitle(data.title || "");
         setShape(data.shape || "round");
+        setShowProducts(data.showProducts ?? true);
         
         // Parse gradient
         const grad = data.borderGradient || "";
@@ -83,6 +97,15 @@ export default function StoryEditorPage() {
         }
 
         setBorderEnabled(data.borderEnabled ?? true);
+        setMaxWidth(data.maxWidth || "100%");
+        setMarginTop(data.marginTop || "0px");
+        setMarginRight(data.marginRight || "0px");
+        setMarginBottom(data.marginBottom || "0px");
+        setMarginLeft(data.marginLeft || "0px");
+        setPaddingTop(data.paddingTop || "0px");
+        setPaddingRight(data.paddingRight || "0px");
+        setPaddingBottom(data.paddingBottom || "0px");
+        setPaddingLeft(data.paddingLeft || "0px");
         setVideoList((data.videos || []).map((v: any) => ({
           videoId: v.id,
           video: v
@@ -140,7 +163,9 @@ export default function StoryEditorPage() {
       const token = localStorage.getItem("token");
       const generatedGradient = `linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`;
       const payload = {
-        name, title, shape, borderGradient: generatedGradient, borderEnabled,
+        name, title, shape, borderGradient: generatedGradient, borderEnabled, showProducts,
+        maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+        paddingTop, paddingRight, paddingBottom, paddingLeft,
         videos: videoList.map(e => ({ id: e.videoId }))
       };
 
@@ -251,6 +276,16 @@ export default function StoryEditorPage() {
               <div className="space-y-4 pt-4 border-t border-border">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Exibir Produtos</Label>
+                    <p className="text-[10px] text-muted-foreground">Mostra produtos vinculados ao vídeo</p>
+                  </div>
+                  <Switch checked={showProducts} onCheckedChange={setShowProducts} />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
                     <Label className="text-xs font-semibold uppercase text-muted-foreground">Borda Colorida</Label>
                     <p className="text-[10px] text-muted-foreground">Destaque os stories com gradiente</p>
                   </div>
@@ -289,6 +324,67 @@ export default function StoryEditorPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-border">
+                <h3 className="text-xs font-bold uppercase text-muted-foreground">Layout e Espaçamento</h3>
+                
+                <div>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Largura Máxima (px, %, rem, vh...)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 1200px ou 100%"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={maxWidth}
+                    onChange={e => setMaxWidth(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Margens Externas</p>
+                    <div className="grid grid-cols-2 gap-2">
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginTop} onChange={e => setMarginTop(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginBottom} onChange={e => setMarginBottom(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginLeft} onChange={e => setMarginLeft(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginRight} onChange={e => setMarginRight(e.target.value)} />
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Preenchimento (Padding)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingTop} onChange={e => setPaddingTop(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingBottom} onChange={e => setPaddingBottom(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingLeft} onChange={e => setPaddingLeft(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingRight} onChange={e => setPaddingRight(e.target.value)} />
+                       </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -409,10 +505,12 @@ export default function StoryEditorPage() {
 
       {/* Preview Modal Overlay */}
       {previewOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm p-4">
-          <div className="w-full h-full max-w-6xl max-h-[90vh] flex flex-col relative z-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
+          <div className="w-full h-full flex flex-col relative z-50">
             <LivePreviewSection 
-               id={id} name={name} shape={shape} borderEnabled={borderEnabled} borderGradient={`linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`} videoList={videoList}
+               id={id} name={name} shape={shape} borderEnabled={borderEnabled} borderGradient={`linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`} showProducts={showProducts} videoList={videoList}
+               maxWidth={maxWidth} marginTop={marginTop} marginRight={marginRight} marginBottom={marginBottom} marginLeft={marginLeft}
+               paddingTop={paddingTop} paddingRight={paddingRight} paddingBottom={paddingBottom} paddingLeft={paddingLeft}
                onClose={() => setPreviewOpen(false)}
             />
           </div>
@@ -427,7 +525,17 @@ export default function StoryEditorPage() {
   );
 }
 
-function LivePreviewSection({ id, name, shape, borderEnabled, borderGradient, videoList, onClose }: { id: string | undefined, name: string, shape: string, borderEnabled: boolean, borderGradient: string, videoList: StoryVideoEntry[], onClose?: () => void }) {
+function LivePreviewSection({ 
+    id, name, shape, borderEnabled, borderGradient, showProducts, videoList, 
+    maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+    paddingTop, paddingRight, paddingBottom, paddingLeft,
+    onClose 
+}: { 
+    id: string | undefined, name: string, shape: string, borderEnabled: boolean, borderGradient: string, showProducts: boolean, videoList: StoryVideoEntry[], 
+    maxWidth: string, marginTop: string, marginRight: string, marginBottom: string, marginLeft: string,
+    paddingTop: string, paddingRight: string, paddingBottom: string, paddingLeft: string,
+    onClose?: () => void 
+}) {
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [zoom, setZoom] = useState(1);
 
@@ -437,7 +545,20 @@ function LivePreviewSection({ id, name, shape, borderEnabled, borderGradient, vi
     shape, 
     borderGradient, 
     borderEnabled,
-    videos: videoList.map(v => v.video)
+    showProducts,
+    maxWidth,
+    marginTop,
+    marginRight,
+    marginBottom,
+    marginLeft,
+    paddingTop,
+    paddingRight,
+    paddingBottom,
+    paddingLeft,
+    videos: videoList.map(v => ({ 
+      ...v.video, 
+      products: v.video?.productsList || [] 
+    }))
   };
 
   const mockScript = `
@@ -457,15 +578,81 @@ function LivePreviewSection({ id, name, shape, borderEnabled, borderGradient, vi
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <base href="${window.location.origin}">
-      <title>Preview Stories</title>
+      <title>Preview Stories Loja</title>
+      <script src="https://cdn.tailwindcss.com"></script>
       <style>
-        body { font-family: system-ui, sans-serif; padding: 3rem 1.5rem; margin: 0; background: transparent; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; background: #ffffff; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .hero-gradient { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); }
       </style>
     </head>
-    <body class="antialiased">
-      <div data-vidshop-story="${id || 'preview'}"></div>
+    <body class="antialiased text-slate-900">
+      <!-- Top Bar -->
+      <div class="bg-black text-white text-[10px] py-1.5 text-center font-bold tracking-widest uppercase">
+        Frete Grátis em pedidos acima de R$ 200
+      </div>
+
+      <!-- Header -->
+      <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex justify-between items-center transition-all">
+        <div class="flex items-center gap-8">
+          <img src="/src/public/vidshop-logo.png" alt="Vidshop" class="h-7 w-auto object-contain" />
+          <nav class="hidden md:flex gap-6 text-[13px] font-semibold text-slate-600">
+            <a href="#" class="hover:text-primary transition-colors">Coleção 2024</a>
+            <a href="#" class="hover:text-primary transition-colors">Mais Vendidos</a>
+            <a href="#" class="hover:text-primary transition-colors">Sale</a>
+          </nav>
+        </div>
+        <div class="flex items-center gap-4 text-slate-700">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
+      </header>
+
+      <main>
+        <!-- Story Dynamic Element -->
+        <section class="py-10 px-6 border-b border-slate-50">
+          <div class="max-w-7xl mx-auto">
+             <div data-vidshop-story="${id || 'preview'}"></div>
+          </div>
+        </section>
+
+        <!-- Hero Section Minimal -->
+        <section class="hero-gradient px-6 py-20 text-center">
+          <div class="max-w-3xl mx-auto space-y-6">
+            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900">Novidades de Inverno</h1>
+            <p class="text-slate-500 text-sm max-w-xl mx-auto">Toda a coleção com até 40% OFF por tempo limitado.</p>
+            <button class="bg-black text-white px-8 py-3 rounded-full text-sm font-bold shadow-lg shadow-black/10 hover:scale-105 transition-transform">Confira Agora</button>
+          </div>
+        </section>
+
+        <!-- Product Grid Placeholder -->
+        <section class="py-20 bg-slate-50 px-6">
+          <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              ${[1, 2, 3, 4].map(i => `
+                <div class="group cursor-pointer">
+                  <div class="aspect-[3/4] bg-white rounded-2xl overflow-hidden relative mb-4">
+                    <div class="absolute inset-0 bg-slate-200 animate-pulse transition-transform duration-500"></div>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="h-4 w-2/3 bg-slate-200 rounded animate-pulse mb-2"></div>
+                    <div class="h-3 w-1/3 bg-slate-100 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer Mock -->
+      <footer class="bg-white border-t border-slate-100 py-12 px-6 text-center">
+        <div class="max-w-7xl mx-auto text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+           © 2024 VidShop Store 
+        </div>
+      </footer>
       
       <script>${mockScript}</script>
       <script src="${window.location.origin}/embed/vidshop.js"></script>
@@ -480,11 +667,28 @@ function LivePreviewSection({ id, name, shape, borderEnabled, borderGradient, vi
   const baseHeight = device !== 'desktop' ? 700 : 500;
 
   return (
-    <Card className="border-border rounded-xl shadow-2xl overflow-hidden h-full flex flex-col bg-background">
+    <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col bg-background shadow-none">
       <CardHeader className="py-3 px-4 border-b border-border bg-muted/20 flex flex-row items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Eye className="w-4 h-4 text-muted-foreground" />
           <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">Preview em Tempo Real</CardTitle>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1 bg-background border border-border rounded-lg p-1 shadow-sm">
+           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))} title="Diminuir Zoom">
+             <ZoomOut className="w-4 h-4" />
+           </Button>
+           <div className="w-12 text-center text-[11px] font-mono font-bold tracking-wider text-primary">
+             {Math.round(zoom * 100)}%
+           </div>
+           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.min(2, z + 0.1))} title="Aumentar Zoom">
+             <ZoomIn className="w-4 h-4" />
+           </Button>
+           <div className="w-[1px] h-4 bg-border mx-1" />
+           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(1)} title="Redefinir Zoom">
+             <RotateCcw className="w-3.5 h-3.5" />
+           </Button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -509,8 +713,12 @@ function LivePreviewSection({ id, name, shape, borderEnabled, borderGradient, vi
       
       <div className="bg-muted/40 p-4 sm:p-8 flex justify-center items-start overflow-y-auto flex-1 overflow-x-hidden">
         <div 
-           className={cn("bg-background rounded-xl shadow-xl overflow-hidden transition-all duration-300 origin-top flex", widthClass)}
-           style={{ transform: `scale(${zoom})`, height: `${baseHeight}px` }}
+           className={cn("bg-background rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(0,0,0,0.1)] overflow-hidden transition-all duration-300 origin-top flex translate-all", widthClass)}
+           style={{ 
+             transform: `scale(${zoom})`, 
+             height: `${baseHeight}px`,
+             width: typeof widthClass === 'string' && widthClass.includes('[') ? undefined : undefined // placeholder to ensure width from class works with scale
+           }}
         >
             <iframe 
               key={JSON.stringify(previewData)}

@@ -2,6 +2,7 @@ import { useStore } from '../context/StoreContext';
 import { apiFetch } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Outlet, Link, useOutletContext } from "react-router-dom";
+import logo from "@/public/vidshop-logo.png";
 import {
   LayoutDashboard,
   LogOut,
@@ -110,7 +111,7 @@ export default function DashboardPage() {
 
   let title = "Dashboard";
   let subtitle = "Visão geral da sua loja";
-  
+
   if (path === "/dashboard/media") { title = "Mídias"; subtitle = "Gerencie imagens e vídeos"; }
   else if (path === "/dashboard/products") { title = "Produtos"; subtitle = "Gerencie seu inventário importado"; }
   else if (path === "/dashboard/import") { title = "Importação"; subtitle = "Adicione produtos via feed XML"; }
@@ -123,16 +124,8 @@ export default function DashboardPage() {
   const Sidebar = (
     <aside className="flex flex-col h-full w-64 bg-foreground text-white">
       <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10 shrink-0">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/20 shrink-0 ring-1 ring-white/10">
-          <PlaySquare className="w-4 h-4 text-primary-foreground fill-primary-foreground/20" />
-        </div>
-        <div className="flex flex-col min-w-0 md:pt-0.5">
-          <span className="text-xl font-black tracking-tight leading-none text-white drop-shadow-sm">
-            VidShop
-          </span>
-          <span className="text-[9px] uppercase tracking-widest text-primary/80 font-bold mt-1">
-            Platform
-          </span>
+        <img src={logo} alt="Vidshop" className="h-10 w-auto object-contain brightness-0 invert" />
+        <div className="flex flex-col min-w-0">
         </div>
       </div>
 
@@ -231,8 +224,8 @@ export default function DashboardPage() {
               <Skeleton className="h-8 w-28" />
             ) : (
               <div className="relative">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="flex items-center gap-2 h-9 px-3 border-border/50 bg-secondary/20 hover:bg-secondary/40"
                   onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
                 >
@@ -242,7 +235,7 @@ export default function DashboardPage() {
                   </span>
                   <ChevronDown className={`w-4 h-4 opacity-50 transition-transform ${storeDropdownOpen ? "rotate-180" : ""}`} />
                 </Button>
-                
+
                 {storeDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setStoreDropdownOpen(false)} />

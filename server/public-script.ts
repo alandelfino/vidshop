@@ -18,7 +18,25 @@ ${layoutSlider}
 
 ${layoutStories}
 
+  function applyLayoutStyles(el, item) {
+    if (!item) return;
+    if (item.maxWidth) el.style.maxWidth = item.maxWidth;
+    if (item.marginTop) el.style.marginTop = item.marginTop;
+    if (item.marginRight) el.style.marginRight = item.marginRight;
+    if (item.marginBottom) el.style.marginBottom = item.marginBottom;
+    if (item.marginLeft) el.style.marginLeft = item.marginLeft;
+    if (item.paddingTop) el.style.paddingTop = item.paddingTop;
+    if (item.paddingRight) el.style.paddingRight = item.paddingRight;
+    if (item.paddingBottom) el.style.paddingBottom = item.paddingBottom;
+    if (item.paddingLeft) el.style.paddingLeft = item.paddingLeft;
+    if (item.maxWidth && item.maxWidth !== "100%" && (!item.marginLeft || item.marginLeft === "0px") && (!item.marginRight || item.marginRight === "0px")) {
+      el.style.marginLeft = "auto";
+      el.style.marginRight = "auto";
+    }
+  }
+
   function buildCarousel(el, data) {
+    applyLayoutStyles(el, data.carousel);
     var layout = data.carousel.layout || "3d-card";
     if (layout === "3d-card") {
       build3DCard(el, data);
@@ -40,7 +58,10 @@ ${layoutStories}
       el.dataset.vidshopLoaded = "1";
       fetch(API_ORIGIN + "/api/public/carousels/" + cid)
         .then(function(r) { return r.json(); })
-        .then(function(data) { buildCarousel(el, data); })
+        .then(function(data) { 
+          if (data.error) throw new Error(data.error);
+          buildCarousel(el, data); 
+        })
         .catch(function(e) { console.warn("[Vidshop] Erro carrossel #" + cid, e); });
     });
 
@@ -52,7 +73,11 @@ ${layoutStories}
       el.dataset.vidshopLoaded = "1";
       fetch(API_ORIGIN + "/api/public/stories/" + sid)
         .then(function(r) { return r.json(); })
-        .then(function(data) { buildStories(el, data); })
+        .then(function(data) { 
+          if (data.error) throw new Error(data.error);
+          applyLayoutStyles(el, data);
+          buildStories(el, data); 
+        })
         .catch(function(e) { console.warn("[Vidshop] Erro story #" + sid, e); });
     });
   }

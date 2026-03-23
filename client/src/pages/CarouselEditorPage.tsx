@@ -41,6 +41,17 @@ export default function CarouselEditorPage() {
   // Slider specific settings
   const [previewTime, setPreviewTime] = useState(3);
 
+  // Layout customization
+  const [maxWidth, setMaxWidth] = useState("100%");
+  const [marginTop, setMarginTop] = useState("0px");
+  const [marginRight, setMarginRight] = useState("0px");
+  const [marginBottom, setMarginBottom] = useState("0px");
+  const [marginLeft, setMarginLeft] = useState("0px");
+  const [paddingTop, setPaddingTop] = useState("0px");
+  const [paddingRight, setPaddingRight] = useState("0px");
+  const [paddingBottom, setPaddingBottom] = useState("0px");
+  const [paddingLeft, setPaddingLeft] = useState("0px");
+
   const [videoList, setVideoList] = useState<CarouselVideoEntry[]>([]);
 
   // Search state
@@ -73,6 +84,15 @@ export default function CarouselEditorPage() {
         setLayout(data.carousel.layout || "3d-card");
         setShowProducts(data.carousel.showProducts ?? true);
         setPreviewTime(data.carousel.previewTime ?? 3);
+        setMaxWidth(data.carousel.maxWidth || "100%");
+        setMarginTop(data.carousel.marginTop || "0px");
+        setMarginRight(data.carousel.marginRight || "0px");
+        setMarginBottom(data.carousel.marginBottom || "0px");
+        setMarginLeft(data.carousel.marginLeft || "0px");
+        setPaddingTop(data.carousel.paddingTop || "0px");
+        setPaddingRight(data.carousel.paddingRight || "0px");
+        setPaddingBottom(data.carousel.paddingBottom || "0px");
+        setPaddingLeft(data.carousel.paddingLeft || "0px");
         setVideoList((data.videos || []).map((v: any) => ({
           videoId: v.videoId,
           video: v.video
@@ -131,6 +151,8 @@ export default function CarouselEditorPage() {
       const payload = {
         name, title, subtitle, titleColor, subtitleColor, layout, showProducts,
         previewTime,
+        maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+        paddingTop, paddingRight, paddingBottom, paddingLeft,
         videoIds: videoList.map(e => e.videoId)
       };
 
@@ -138,7 +160,11 @@ export default function CarouselEditorPage() {
         const createRes = await apiFetch("/api/carousels", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime })
+          body: JSON.stringify({ 
+            name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
+            maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+            paddingTop, paddingRight, paddingBottom, paddingLeft
+          })
         });
         if (!createRes.ok) throw new Error("Erro ao criar carrossel");
         const created = await createRes.json();
@@ -310,6 +336,67 @@ export default function CarouselEditorPage() {
                   </div>
                 </div>
               )}
+
+              <div className="space-y-4 pt-4 border-t border-border">
+                <h3 className="text-xs font-bold uppercase text-muted-foreground">Layout e Espaçamento</h3>
+                
+                <div>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Largura Máxima (px, %, rem, vh...)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 1200px ou 100%"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={maxWidth}
+                    onChange={e => setMaxWidth(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Margens Externas</p>
+                    <div className="grid grid-cols-2 gap-2">
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginTop} onChange={e => setMarginTop(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginBottom} onChange={e => setMarginBottom(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginLeft} onChange={e => setMarginLeft(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginRight} onChange={e => setMarginRight(e.target.value)} />
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Preenchimento (Padding)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingTop} onChange={e => setPaddingTop(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingBottom} onChange={e => setPaddingBottom(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingLeft} onChange={e => setPaddingLeft(e.target.value)} />
+                       </div>
+                       <div>
+                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
+                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingRight} onChange={e => setPaddingRight(e.target.value)} />
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -430,11 +517,13 @@ export default function CarouselEditorPage() {
 
       {/* Preview Modal Overlay */}
       {previewOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
           <div className="w-full h-full flex flex-col relative z-50">
             <LivePreviewSection 
               id={id} name={name} title={title} subtitle={subtitle} titleColor={titleColor} subtitleColor={subtitleColor} 
               layout={layout} showProducts={showProducts} previewTime={previewTime} videoList={videoList}
+              maxWidth={maxWidth} marginTop={marginTop} marginRight={marginRight} marginBottom={marginBottom} marginLeft={marginLeft}
+              paddingTop={paddingTop} paddingRight={paddingRight} paddingBottom={paddingBottom} paddingLeft={paddingLeft}
               onClose={() => setPreviewOpen(false)}
             />
           </div>
@@ -449,12 +538,26 @@ export default function CarouselEditorPage() {
   );
 }
 
-function LivePreviewSection({ id, name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoList, onClose }: { id: string | undefined, name: string, title: string, subtitle: string, titleColor: string, subtitleColor: string, layout: string, showProducts: boolean, previewTime: number, videoList: CarouselVideoEntry[], onClose?: () => void }) {
+function LivePreviewSection({ 
+    id, name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoList, 
+    maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+    paddingTop, paddingRight, paddingBottom, paddingLeft,
+    onClose 
+}: { 
+    id: string | undefined, name: string, title: string, subtitle: string, titleColor: string, subtitleColor: string, layout: string, showProducts: boolean, previewTime: number, videoList: CarouselVideoEntry[], 
+    maxWidth: string, marginTop: string, marginRight: string, marginBottom: string, marginLeft: string,
+    paddingTop: string, paddingRight: string, paddingBottom: string, paddingLeft: string,
+    onClose?: () => void 
+}) {
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [zoom, setZoom] = useState(1);
 
   const previewData = {
-    carousel: { id: id || "preview", name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime },
+    carousel: { 
+        id: id || "preview", name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
+        maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+        paddingTop, paddingRight, paddingBottom, paddingLeft
+    },
     // A API agora retorna a lista de vídeos com a propriedade productsList
     videos: videoList.map(v => ({ ...v.video, productsList: v.video?.productsList || [] }))
   };
@@ -521,15 +624,96 @@ function LivePreviewSection({ id, name, title, subtitle, titleColor, subtitleCol
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <base href="${window.location.origin}">
-      <title>Preview</title>
+      <title>Preview Loja</title>
+      <script src="https://cdn.tailwindcss.com"></script>
       <style>
-        body { font-family: system-ui, sans-serif; padding: 2rem 0; margin: 0; background: transparent; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; background: #ffffff; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .hero-gradient { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); }
       </style>
     </head>
-    <body class="antialiased">
-      <div data-vidshop-carousel="${id || 'preview'}"></div>
+    <body class="antialiased text-slate-900">
+      <!-- Top Bar -->
+      <div class="bg-black text-white text-[10px] py-1.5 text-center font-bold tracking-widest uppercase">
+        Frete Grátis em pedidos acima de R$ 200
+      </div>
+
+      <!-- Header -->
+      <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex justify-between items-center transition-all">
+        <div class="flex items-center gap-8">
+          <img src="/src/public/vidshop-logo.png" alt="Vidshop" class="h-7 w-auto object-contain" />
+          <nav class="hidden md:flex gap-6 text-[13px] font-semibold text-slate-600">
+            <a href="#" class="hover:text-primary transition-colors">Coleção 2024</a>
+            <a href="#" class="hover:text-primary transition-colors">Mais Vendidos</a>
+            <a href="#" class="hover:text-primary transition-colors">Sale</a>
+          </nav>
+        </div>
+        <div class="flex items-center gap-4 text-slate-700">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        </div>
+      </header>
+
+      <main>
+        <!-- Hero Section -->
+        <section class="hero-gradient px-6 py-16 md:py-24 text-center">
+          <div class="max-w-3xl mx-auto space-y-6">
+            <span class="inline-block px-3 py-1 bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-widest rounded-full">Nova Temporada</span>
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900">Descubra seu próximo <br/>estilo favorito.</h1>
+            <p class="text-slate-500 text-sm md:text-base max-w-xl mx-auto">Explore nossa curadoria exclusiva de peças minimalistas e atemporais, desenhadas para elevar sua experiência diária.</p>
+            <div class="flex items-center justify-center gap-4 pt-4">
+              <button class="bg-black text-white px-8 py-3 rounded-full text-sm font-bold shadow-lg shadow-black/10 hover:scale-105 transition-transform">Comprar Agora</button>
+              <button class="bg-white text-slate-900 border border-slate-200 px-8 py-3 rounded-full text-sm font-bold hover:bg-slate-50 transition-colors">Saiba Mais</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Dynamic Element (Carousel) -->
+        <section class="py-12 px-6">
+          <div class="max-w-7xl mx-auto">
+            <div class="flex items-end justify-between mb-8">
+              <div>
+                <span class="text-primary font-bold text-xs uppercase tracking-widest">Shop the Look</span>
+                <h2 class="text-2xl font-extrabold tracking-tight">Vistos Recentemente</h2>
+              </div>
+              <a href="#" class="text-sm font-bold border-b-2 border-primary pb-0.5">Ver tudo</a>
+            </div>
+            
+            <!-- Carousel Inject Point -->
+            <div data-vidshop-carousel="${id || 'preview'}" class="w-full"></div>
+          </div>
+        </section>
+
+        <!-- Static Product Grid -->
+        <section class="py-20 bg-slate-50 px-6">
+          <div class="max-w-7xl mx-auto">
+            <h2 class="text-2xl font-extrabold tracking-tight mb-12 text-center">Nossos Essenciais</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              ${[1, 2, 3, 4].map(i => `
+                <div class="group cursor-pointer">
+                  <div class="aspect-[3/4] bg-white rounded-2xl overflow-hidden relative mb-4">
+                    <div class="absolute inset-0 bg-slate-200 animate-pulse group-hover:scale-105 transition-transform duration-500"></div>
+                  </div>
+                  <div class="space-y-1">
+                    <h4 class="text-sm font-bold">Produto Essencial 0${i}</h4>
+                    <p class="text-xs text-slate-500 font-medium">Categoria Premium</p>
+                    <p class="text-sm font-extrabold text-primary">R$ 189,90</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer Mock -->
+      <footer class="bg-white border-t border-slate-100 py-12 px-6 text-center">
+        <div class="max-w-7xl mx-auto">
+          <p class="text-slate-400 text-xs font-medium uppercase tracking-[0.2em]">© 2024 VidShop Store • Experiência de Vídeo Shoppable</p>
+        </div>
+      </footer>
       
       <script>${mockScript}</script>
       <script>${touchMockScript}</script>
@@ -546,7 +730,7 @@ function LivePreviewSection({ id, name, title, subtitle, titleColor, subtitleCol
   const baseWidth = device === 'tablet' ? 768 : device === 'mobile' ? 375 : '100%';
 
   return (
-    <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col shadow-2xl">
+    <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col shadow-none">
       <CardHeader className="py-3 px-4 sm:py-4 sm:px-6 border-b border-border bg-muted/20 flex flex-row items-center justify-between shrink-0 flex-wrap gap-4">
         
         <div className="flex items-center gap-2">

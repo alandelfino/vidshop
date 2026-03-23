@@ -137,6 +137,18 @@ export const videoCarousels = pgTable("video_carousels", {
   layout: text("layout").notNull().default("3d-card"),
   showProducts: boolean("show_products").notNull().default(true),
   previewTime: integer("preview_time").notNull().default(3),
+
+  // Layout customization
+  maxWidth: text("max_width").notNull().default("100%"),
+  marginTop: text("margin_top").notNull().default("0px"),
+  marginRight: text("margin_right").notNull().default("0px"),
+  marginBottom: text("margin_bottom").notNull().default("0px"),
+  marginLeft: text("margin_left").notNull().default("0px"),
+  paddingTop: text("padding_top").notNull().default("0px"),
+  paddingRight: text("padding_right").notNull().default("0px"),
+  paddingBottom: text("padding_bottom").notNull().default("0px"),
+  paddingLeft: text("padding_left").notNull().default("0px"),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -177,7 +189,19 @@ export const videoStories = pgTable("video_stories", {
   shape: text("shape").notNull().default("round"), // round, rect-9-16, square-9-16
   borderGradient: text("border_gradient").notNull().default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
   borderEnabled: boolean("border_enabled").notNull().default(true),
+  showProducts: boolean("show_products").notNull().default(true),
   
+  // Layout customization
+  maxWidth: text("max_width").notNull().default("100%"),
+  marginTop: text("margin_top").notNull().default("0px"),
+  marginRight: text("margin_right").notNull().default("0px"),
+  marginBottom: text("margin_bottom").notNull().default("0px"),
+  marginLeft: text("margin_left").notNull().default("0px"),
+  paddingTop: text("padding_top").notNull().default("0px"),
+  paddingRight: text("padding_right").notNull().default("0px"),
+  paddingBottom: text("padding_bottom").notNull().default("0px"),
+  paddingLeft: text("padding_left").notNull().default("0px"),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

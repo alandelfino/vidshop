@@ -1,0 +1,19 @@
+ALTER TABLE "video_carousels" ADD COLUMN "max_width" text DEFAULT '100%' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "margin_top" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "margin_right" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "margin_bottom" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "margin_left" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "padding_top" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "padding_right" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "padding_bottom" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_carousels" ADD COLUMN "padding_left" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "show_products" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "max_width" text DEFAULT '100%' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "margin_top" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "margin_right" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "margin_bottom" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "margin_left" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "padding_top" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "padding_right" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "padding_bottom" text DEFAULT '0px' NOT NULL;--> statement-breakpoint
+ALTER TABLE "video_stories" ADD COLUMN "padding_left" text DEFAULT '0px' NOT NULL;

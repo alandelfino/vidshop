@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ShoppingBag, Eye, EyeOff } from "lucide-react";
+import logo from "@/public/vidshop-logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,10 +56,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8">
       <div className="flex items-center gap-2 mb-8">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-          <ShoppingBag className="w-5 h-5 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-bold tracking-tight text-foreground">Vidshop</span>
+        <img src={logo} alt="Vidshop" className="h-10 w-auto object-contain" />
       </div>
 
       <Card className="w-full max-w-sm shadow-sm">
