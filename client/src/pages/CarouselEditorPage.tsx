@@ -520,6 +520,7 @@ function LivePreviewSection({ id, name, title, subtitle, titleColor, subtitleCol
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <base href="${window.location.origin}">
       <title>Preview</title>
       <style>
         body { font-family: system-ui, sans-serif; padding: 2rem 0; margin: 0; background: transparent; }
@@ -532,7 +533,7 @@ function LivePreviewSection({ id, name, title, subtitle, titleColor, subtitleCol
       
       <script>${mockScript}</script>
       <script>${touchMockScript}</script>
-      <script src="${window.location.origin}/embed/carousel.js"></script>
+      <script src="${window.location.origin}/embed/vidshop.js"></script>
     </body>
     </html>
   `;
@@ -625,7 +626,7 @@ function LivePreviewSection({ id, name, title, subtitle, titleColor, subtitleCol
 function EmbedSection({ id }: { id: string }) {
   const [copied, setCopied] = useState<"script" | "div" | null>(null);
   const origin = window.location.origin;
-  const scriptTag = `<script src="${origin}/embed/carousel.js" async></script>`;
+  const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
   const divTag = `<div data-vidshop-carousel="${id}"></div>`;
 
   const copy = (text: string, key: "script" | "div") => {
@@ -664,6 +665,12 @@ function EmbedSection({ id }: { id: string }) {
               {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
             </Button>
           </div>
+        </div>
+        <div className="sm:col-span-2 pt-2 border-t border-border mt-2">
+           <p className="text-xs text-muted-foreground flex items-center gap-2">
+             ⚠️ <strong>O script geral deve ser adicionado apenas UMA VEZ na loja.</strong>
+             Se você já tem um Carrossel ou Story ativo, não há necessidade de adicionar o script novamente, basta colocar a div acima.
+           </p>
         </div>
       </CardContent>
     </Card>

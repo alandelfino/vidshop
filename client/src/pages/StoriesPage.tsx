@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Edit, Trash2, Loader2, LayoutGrid, Package, Eye, EyeOff, Code2, Copy, Check, X } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, CircleDot, Package, Eye, EyeOff, Code2, Copy, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,28 +9,28 @@ import { useAuthUser } from "./DashboardPage";
 import { useStore } from "../context/StoreContext";
 
 const PLANS = {
-  free: { name: "Free", limits: { carousels: 1 } },
-  pro: { name: "Pro", limits: { carousels: 2 } },
-  ultra: { name: "Ultra", limits: { carousels: 999999 } },
-  gold: { name: "Gold", limits: { carousels: 999999 } }
+  free: { name: "Free", limits: { stories: 1 } },
+  pro: { name: "Pro", limits: { stories: 2 } },
+  ultra: { name: "Ultra", limits: { stories: 999999 } },
+  gold: { name: "Gold", limits: { stories: 999999 } }
 };
 
-interface Carousel {
+interface Story {
   id: number;
   name: string;
   title: string | null;
-  subtitle: string | null;
-  showProducts: boolean;
+  shape: string;
+  borderEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-function EmbedModal({ carousel, onClose }: { carousel: Carousel; onClose: () => void }) {
+function EmbedModal({ story, onClose }: { story: Story; onClose: () => void }) {
   const [copied, setCopied] = useState<"script" | "div" | null>(null);
 
   const origin = window.location.origin;
   const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
-  const divTag = `<div data-vidshop-carousel="${carousel.id}"></div>`;
+  const divTag = `<div data-vidshop-story="${story.id}"></div>`;
 
   const copy = (text: string, key: "script" | "div") => {
     navigator.clipboard.writeText(text);
@@ -43,8 +43,8 @@ function EmbedModal({ carousel, onClose }: { carousel: Carousel; onClose: () => 
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-xl p-6 flex flex-col gap-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold">Código de Embed</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Carrossel: <strong>{carousel.name}</strong></p>
+            <h2 className="text-lg font-bold">Código de Embed - Stories</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Story: <strong>{story.name}</strong></p>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="w-4 h-4" /></Button>
         </div>
@@ -69,7 +69,7 @@ function EmbedModal({ carousel, onClose }: { carousel: Carousel; onClose: () => 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
-            <p className="text-sm font-semibold">Coloque onde quiser exibir o carrossel</p>
+            <p className="text-sm font-semibold">Coloque onde quiser exibir as "bolinhas" do Story</p>
           </div>
           <div className="relative">
             <pre className="text-xs bg-muted/50 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">
@@ -82,70 +82,69 @@ function EmbedModal({ carousel, onClose }: { carousel: Carousel; onClose: () => 
         </div>
 
         <p className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg border border-border/50">
-          ⚠️ <strong>O script geral deve ser adicionado apenas UMA VEZ na loja.</strong> Se você já tem um Carrossel ou Story ativo, use apenas a <code className="font-mono">&lt;div&gt;</code> abaixo.
+          ⚠️ <strong>O script geral deve ser adicionado apenas UMA VEZ na loja.</strong> Se você já tem um Carrossel ou Story ativo, use apenas a <code className="font-mono">&lt;div&gt;</code> acima.
         </p>
       </div>
     </div>
   );
 }
 
-export default function CarouselsPage() {
-  const [carousels, setCarousels] = useState<Carousel[]>([]);
+export default function StoriesPage() {
+  const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
-  const [embedTarget, setEmbedTarget] = useState<Carousel | null>(null);
+  const [embedTarget, setEmbedTarget] = useState<Story | null>(null);
   const navigate = useNavigate();
-  const user = useAuthUser();
   const { activeStore } = useStore();
 
-  const handleNewCarousel = () => {
+  const handleNewStory = () => {
     const plan = PLANS[(activeStore?.plan as keyof typeof PLANS) || "free"];
-    if (carousels.length >= plan.limits.carousels) {
-      if (window.confirm(`Oops, você atingiu o limite de ${plan.limits.carousels} carrossel(eis) no plano ${plan.name}. Faça o upgrade agora para expandir!`)) {
+    if (stories.length >= plan.limits.stories) {
+      if (window.confirm(`Oops, você atingiu o limite de ${plan.limits.stories} story(ies) no plano ${plan.name}. Faça o upgrade agora para expandir!`)) {
         navigate("/dashboard/billing");
       }
       return;
     }
-    navigate("/dashboard/carousels/new");
+    navigate("/dashboard/stories/new");
   };
 
-  const fetchCarousels = async () => {
+  const fetchStories = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await apiFetch("/api/carousels", {
+      const res = await apiFetch("/api/stories", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) setCarousels((await res.json()).carousels || []);
+      if (res.ok) setStories((await res.json()).stories || []);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchCarousels(); }, []);
+  useEffect(() => { fetchStories(); }, []);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Deseja excluir este carrossel?")) return;
+    if (!window.confirm("Deseja excluir esta story?")) return;
     const token = localStorage.getItem("token");
-    await apiFetch(`/api/carousels/${id}`, {
+    await apiFetch(`/api/stories/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     });
-    setCarousels(prev => prev.filter(c => c.id !== id));
+    setStories(prev => prev.filter(c => c.id !== id));
   };
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full pb-10">
-      {embedTarget && <EmbedModal carousel={embedTarget} onClose={() => setEmbedTarget(null)} />}
+      {embedTarget && <EmbedModal story={embedTarget} onClose={() => setEmbedTarget(null)} />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Carrosseis</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Gerencie coleções de vídeos para exibição em carrossel.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Stories</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gerencie widgets de vídeos no estilo Stories do Instagram.</p>
         </div>
-        <Button onClick={handleNewCarousel}>
+        <Button onClick={handleNewStory}>
           <Plus className="w-4 h-4 mr-2" />
-          Novo Carrossel
+          Novo Story
         </Button>
       </div>
 
@@ -153,51 +152,46 @@ export default function CarouselsPage() {
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-7 h-7 animate-spin text-muted-foreground" />
         </div>
-      ) : carousels.length === 0 ? (
+      ) : stories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-border rounded-xl bg-muted/10 text-center">
-          <LayoutGrid className="w-12 h-12 text-muted-foreground opacity-25 mb-4" />
-          <h3 className="text-lg font-semibold">Nenhum carrossel</h3>
+          <CircleDot className="w-12 h-12 text-muted-foreground opacity-25 mb-4" />
+          <h3 className="text-lg font-semibold">Nenhum story</h3>
           <p className="text-sm text-muted-foreground mt-1 mb-6 max-w-xs">
-            Crie seu primeiro carrossel para organizar vídeos e exibi-los em qualquer loja.
+            Crie seu primeiro widget de story para exibir bolinhas interativas na sua loja.
           </p>
-          <Button onClick={handleNewCarousel}>
-            <Plus className="w-4 h-4 mr-2" /> Criar Carrossel
+          <Button onClick={handleNewStory}>
+            <Plus className="w-4 h-4 mr-2" /> Criar Story
           </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {carousels.map(c => (
-            <Card key={c.id} className="group border-border hover:shadow-md transition-all overflow-hidden">
-              <div className="h-2 bg-gradient-to-r from-primary/70 to-primary/40" />
+          {stories.map(s => (
+            <Card key={s.id} className="group border-border hover:shadow-md transition-all overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-pink-500 via-purple-500 to-orange-500" />
               <CardContent className="p-5 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-bold text-base truncate">{c.name}</p>
-                    {c.title && <p className="text-sm text-muted-foreground truncate mt-0.5">{c.title}</p>}
+                    <p className="font-bold text-base truncate">{s.name}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-0.5">
+                      Formato: {s.shape === 'round' ? 'Circular' : s.shape === 'rect-9-16' ? '9:16 Arredondado' : '9:16 Quadrado'}
+                    </p>
                   </div>
-                  <Badge variant={c.showProducts ? "default" : "secondary"} className="shrink-0 text-[10px] font-semibold py-0.5 px-2 flex items-center gap-1">
-                    {c.showProducts ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                    {c.showProducts ? "Com Produtos" : "Sem Produtos"}
+                  <Badge variant={s.borderEnabled ? "outline" : "secondary"} className="shrink-0 text-[10px] font-semibold py-0.5 px-2">
+                    {s.borderEnabled ? "Com Borda" : "Sem Borda"}
                   </Badge>
                 </div>
-
-                {c.subtitle && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 bg-muted/30 rounded-md px-3 py-2 border border-border/50">
-                    {c.subtitle}
-                  </p>
-                )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-auto">
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Package className="w-3 h-3" />
-                    {new Date(c.updatedAt).toLocaleDateString("pt-BR")}
+                    {new Date(s.updatedAt).toLocaleDateString("pt-BR")}
                   </span>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-500"
-                      onClick={() => setEmbedTarget(c)}
+                      onClick={() => setEmbedTarget(s)}
                       title="Código de Embed"
                     >
                       <Code2 className="w-3.5 h-3.5" />
@@ -206,7 +200,7 @@ export default function CarouselsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                      onClick={() => navigate(`/dashboard/carousels/edit/${c.id}`)}
+                      onClick={() => navigate(`/dashboard/stories/edit/${s.id}`)}
                       title="Editar"
                     >
                       <Edit className="w-3.5 h-3.5" />
@@ -215,7 +209,7 @@ export default function CarouselsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => handleDelete(c.id)}
+                      onClick={() => handleDelete(s.id)}
                       title="Excluir"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

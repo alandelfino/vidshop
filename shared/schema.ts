@@ -164,3 +164,45 @@ export const viewEvents = pgTable("view_events", {
 }));
 
 export type ViewEvent = typeof viewEvents.$inferSelect;
+
+// ─── Stories Feature (Independent) ──────────────────────────────────────────
+
+export const videoStories = pgTable("video_stories", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+  name: text("name").notNull(),
+  title: text("title"),
+  
+  // Customization
+  shape: text("shape").notNull().default("round"), // round, rect-9-16, square-9-16
+  borderGradient: text("border_gradient").notNull().default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
+  borderEnabled: boolean("border_enabled").notNull().default(true),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const storyVideos = pgTable("story_videos", {
+  id: serial("id").primaryKey(),
+  storyId: integer("story_id").references(() => videoStories.id, { onDelete: 'cascade' }).notNull(),
+  videoId: integer("video_id").references(() => shoppableVideos.id, { onDelete: 'cascade' }).notNull(),
+  position: integer("position").notNull().default(0),
+});
+
+export type VideoStory = typeof videoStories.$inferSelect;
+export type NewVideoStory = typeof videoStories.$inferInsert;
+export type StoryVideo = typeof storyVideos.$inferSelect;
+export type NewStoryVideo = typeof storyVideos.$inferInsert;
+
+// Per-day view analytics for Stories
+export const storyViewEvents = pgTable("story_view_events", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id, { onDelete: "cascade" }).notNull(),
+  storyId: integer("story_id").references(() => videoStories.id, { onDelete: "cascade" }).notNull(),
+  date: text("date").notNull(), // ISO date string: 'YYYY-MM-DD'
+  count: integer("count").notNull().default(0),
+}, (t) => ({
+  unq: unique("story_view_events_store_story_date_idx").on(t.storeId, t.storyId, t.date),
+}));
+
+export type StoryViewEvent = typeof storyViewEvents.$inferSelect;

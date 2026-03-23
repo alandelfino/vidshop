@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { eq, desc, ilike, or, sql, inArray, and } from "drizzle-orm";
 import fs from "fs";
 import { db } from "./db.js";
-import { users, stores, media, products, catalogImports, catalogSyncs, shoppableVideos, videoProducts, videoCarousels, carouselVideos, viewEvents } from "../shared/schema.js";
+import { users, stores, media, products, catalogImports, catalogSyncs, shoppableVideos, videoProducts, videoCarousels, carouselVideos, viewEvents, videoStories, storyVideos, storyViewEvents } from "../shared/schema.js";
 import { upload, s3Client } from "./upload.js";
 import { sendVerificationEmail } from "./email.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -184,12 +184,20 @@ export function registerRoutes(app: Express) {
 
     app.post("/api/stores", authMiddleware, async (req: Request, res: Response) => {
         const payload = (req as any).user as JwtPayload;
-        const { name, allowedDomain } = req.body;
+        const { name, allowedDomain, plan } = req.body;
         if (!name || !allowedDomain) return res.status(400).json({ error: "Nome da loja e domínio são obrigatórios" });
 
-        // Auto-start 14-day free trial (no credit card required)
-        const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-        const [store] = await db.insert(stores).values({ name, allowedDomain, plan: "free", trialEndsAt, ownerId: payload.userId }).returning();
+        const selectedPlan = (plan && PLANS[plan as PlanId]) ? (plan as PlanId) : "pro";
+
+        // Auto-start 15-day free trial (no credit card required)
+        const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
+        const [store] = await db.insert(stores).values({ 
+            name, 
+            allowedDomain, 
+            plan: selectedPlan, 
+            trialEndsAt, 
+            ownerId: payload.userId 
+        }).returning();
         res.status(201).json({ store });
     });
 
@@ -456,14 +464,15 @@ export function registerRoutes(app: Express) {
                     }
 
                     const planId = store.plan as PlanId;
-                    const isTrialActive = store.plan === "free" && store.trialEndsAt && store.trialEndsAt > new Date();
-                    const isTrialExpired = store.plan === "free" && (!store.trialEndsAt || store.trialEndsAt <= new Date());
+                    const isTrialActive = store.trialEndsAt && store.trialEndsAt > new Date();
+                    const isTrialExpired = store.trialEndsAt && store.trialEndsAt <= new Date();
+                    const isPaidPlan = !store.trialEndsAt && store.plan !== "free";
 
-                    if (isTrialExpired) {
-                        return res.status(403).json({ error: "O trial gratuito desta loja expirou. O conteúdo está bloqueado até a ativação de um plano." });
+                    if (isTrialExpired || (!isTrialActive && !isPaidPlan)) {
+                        return res.status(403).json({ error: "O trial gratuito desta loja expirou ou não há plano ativo. O conteúdo está bloqueado." });
                     }
 
-                    const limits = isTrialActive ? TRIAL_LIMITS : (PLANS[planId] || TRIAL_LIMITS);
+                    const limits = PLANS[planId] || TRIAL_LIMITS;
 
                     if (store.currentCycleViews >= limits.maxViews) {
                         return res.status(403).json({ error: "Cota mensal de visualizações da loja excedida. O conteúdo está bloqueado até o upgrade do plano." });
@@ -549,8 +558,8 @@ export function registerRoutes(app: Express) {
         }
     });
 
-    // carousel.js embed widget
-    app.get("/embed/carousel.js", (_req: Request, res: Response) => {
+    // vidshop.js embed widget (global script)
+    app.get("/embed/vidshop.js", (_req: Request, res: Response) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Content-Type", "application/javascript");
         res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -558,6 +567,11 @@ export function registerRoutes(app: Express) {
         const origin = process.env.PUBLIC_URL || "";
 
         res.send(publicScript.replace("__API_ORIGIN__", origin));
+    });
+
+    // Backwards compatibility for carousel.js
+    app.get("/embed/carousel.js", (_req: Request, res: Response) => {
+        res.redirect(301, "/embed/vidshop.js");
     });
 
     // Video Carousels
@@ -632,14 +646,15 @@ export function registerRoutes(app: Express) {
             if (!activeStore) return res.status(403).json({ error: "Loja não encontrada ou acesso negado." });
 
             const planId = activeStore.plan as PlanId;
-            const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > new Date();
-            const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= new Date());
+            const isTrialActive = activeStore.trialEndsAt && activeStore.trialEndsAt > new Date();
+            const isTrialExpired = activeStore.trialEndsAt && activeStore.trialEndsAt <= new Date();
+            const isPaidPlan = !activeStore.trialEndsAt && activeStore.plan !== "free";
 
-            if (isTrialExpired) {
-                return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar criando carrosséis.", trialExpired: true });
+            if (isTrialExpired || (!isTrialActive && !isPaidPlan)) {
+                return res.status(403).json({ error: "Seu trial gratuito expirou ou não há plano ativo. Assine um plano para continuar criando carrosséis.", trialExpired: true });
             }
 
-            const limits = isTrialActive ? TRIAL_LIMITS : (PLANS[planId] || TRIAL_LIMITS);
+            const limits = PLANS[planId] || TRIAL_LIMITS;
 
             const [countRes] = await db.select({ count: sql`count(*)`.mapWith(Number) }).from(videoCarousels).where(eq(videoCarousels.storeId, storeId));
             const count = countRes.count;
@@ -706,6 +721,185 @@ export function registerRoutes(app: Express) {
         const publicUrl = process.env.PUBLIC_URL || "http://localhost:5000";
         purgeCloudflareCache([`${publicUrl}/api/public/carousels/${parseInt(req.params.id)}`]);
         res.sendStatus(204);
+    });
+
+    // ─── Video Stories (Independent Feature) ──────────────────────────────────
+
+    app.get("/api/stories", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const myStories = await db.select().from(videoStories).where(eq(videoStories.storeId, storeId)).orderBy(desc(videoStories.createdAt));
+        res.json({ stories: myStories });
+    });
+
+    app.post("/api/stories", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const { name, title, shape, borderGradient, borderEnabled } = req.body;
+        if (!name) return res.status(400).json({ error: "Nome da story é obrigatório" });
+
+        const [story] = await db.insert(videoStories).values({
+            storeId,
+            name,
+            title,
+            shape: shape || "round",
+            borderGradient: borderGradient || "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+            borderEnabled: borderEnabled ?? true,
+        }).returning();
+
+        res.status(201).json({ story });
+    });
+
+    app.get("/api/stories/:id", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const storyId = parseInt(req.params.id);
+
+        const [story] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
+        if (!story) return res.status(404).json({ error: "Story não encontrada" });
+
+        const videos = await db.select({
+            id: shoppableVideos.id,
+            title: shoppableVideos.title,
+            mediaUrl: shoppableVideos.mediaUrl,
+            thumbnailUrl: shoppableVideos.thumbnailUrl,
+            position: storyVideos.position
+        })
+        .from(storyVideos)
+        .innerJoin(shoppableVideos, eq(storyVideos.videoId, shoppableVideos.id))
+        .where(eq(storyVideos.storyId, storyId))
+        .orderBy(storyVideos.position);
+
+        res.json({ ...story, videos });
+    });
+
+    app.put("/api/stories/:id", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const storyId = parseInt(req.params.id);
+        const { name, title, shape, borderGradient, borderEnabled, videos } = req.body;
+
+        const [existing] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
+        if (!existing) return res.status(404).json({ error: "Story não encontrada" });
+
+        const [story] = await db.update(videoStories).set({
+            name,
+            title,
+            shape,
+            borderGradient,
+            borderEnabled,
+            updatedAt: new Date(),
+        })
+        .where(eq(videoStories.id, storyId))
+        .returning();
+
+        if (videos && Array.isArray(videos)) {
+            await db.delete(storyVideos).where(eq(storyVideos.storyId, storyId));
+            if (videos.length > 0) {
+                await db.insert(storyVideos).values(
+                    videos.map((v: any, index: number) => ({
+                        storyId,
+                        videoId: v.id,
+                        position: index,
+                    }))
+                );
+            }
+        }
+
+        res.json({ story });
+    });
+
+    app.delete("/api/stories/:id", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const storyId = parseInt(req.params.id);
+
+        const [deleted] = await db.delete(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).returning();
+        if (!deleted) return res.status(404).json({ error: "Story não encontrada" });
+
+        res.json({ success: true });
+    });
+
+    // Public story data API
+    app.get("/api/public/stories/:id", async (req: Request, res: Response) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET");
+        res.setHeader("Cache-Control", "no-store");
+
+        try {
+            const storyId = parseInt(req.params.id);
+            if (isNaN(storyId)) return res.status(400).json({ error: "ID inválido" });
+
+            const [story] = await db.select().from(videoStories).where(eq(videoStories.id, storyId));
+            if (!story) return res.status(404).json({ error: "Story não encontrada" });
+
+            const [store] = await db.select().from(stores).where(eq(stores.id, story.storeId));
+            if (store) {
+                if (store.allowedDomain) {
+                    const origin = req.headers.origin || req.headers.referer;
+                    if (origin && !origin.includes(store.allowedDomain)) {
+                        return res.status(403).json({ error: "Domínio não autorizado para esta story." });
+                    }
+                }
+
+                const planId = store.plan as PlanId;
+                const isTrialActive = store.trialEndsAt && store.trialEndsAt > new Date();
+                const isTrialExpired = store.trialEndsAt && store.trialEndsAt <= new Date();
+                const isPaidPlan = !store.trialEndsAt && store.plan !== "free";
+
+                if (isTrialExpired || (!isTrialActive && !isPaidPlan)) {
+                    return res.status(403).json({ error: "O trial gratuito desta loja expirou ou não há plano ativo. O conteúdo está bloqueado." });
+                }
+
+                const limits = PLANS[planId] || TRIAL_LIMITS;
+                if (store.currentCycleViews >= limits.maxViews) {
+                    return res.status(403).json({ error: "Cota mensal de visualizações da loja excedida. O conteúdo está bloqueado." });
+                }
+            }
+
+            const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.socket.remoteAddress || "0.0.0.0";
+            if (shouldCountView(-storyId, ip)) { // Use negative ID to distinguish from carousels in cache
+                const date = todayUTC();
+                db.execute(sql`
+                    INSERT INTO story_view_events (store_id, story_id, date, count)
+                    VALUES (${story.storeId}, ${storyId}, ${date}, 1)
+                    ON CONFLICT (store_id, story_id, date) 
+                    DO UPDATE SET count = story_view_events.count + 1
+                `).catch(e => console.error("[view-tracker] Story view failed:", e));
+                
+                db.update(stores).set({
+                    currentCycleViews: sql`${stores.currentCycleViews} + 1`
+                }).where(eq(stores.id, story.storeId)).catch(e => console.error("[view-tracker] Views increment failed:", e));
+            }
+
+            const svRaw = await db.select({
+                id: shoppableVideos.id,
+                title: shoppableVideos.title,
+                mediaUrl: shoppableVideos.mediaUrl,
+                thumbnailUrl: shoppableVideos.thumbnailUrl,
+                position: storyVideos.position
+            })
+            .from(storyVideos)
+            .innerJoin(shoppableVideos, eq(storyVideos.videoId, shoppableVideos.id))
+            .where(eq(storyVideos.storyId, storyId))
+            .orderBy(storyVideos.position);
+
+            const videos = await Promise.all(svRaw.map(async (v) => {
+                const productsList = await db.select({
+                    id: products.id,
+                    title: products.title,
+                    price: products.price,
+                    imageLink: products.imageLink,
+                    link: products.link,
+                    startTime: videoProducts.startTime,
+                    endTime: videoProducts.endTime
+                })
+                .from(videoProducts)
+                .innerJoin(products, eq(videoProducts.productId, products.id))
+                .where(eq(videoProducts.videoId, v.id));
+                
+                return { ...v, products: productsList };
+            }));
+
+            res.json({ ...story, videos });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
     });
 
     // Shoppable Videos APIs
@@ -780,14 +974,15 @@ export function registerRoutes(app: Express) {
             if (!activeStore) return res.status(403).json({ error: "Loja não encontrada ou acesso negado." });
 
             const planId = activeStore.plan as PlanId;
-            const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > new Date();
-            const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= new Date());
+            const isTrialActive = activeStore.trialEndsAt && activeStore.trialEndsAt > new Date();
+            const isTrialExpired = activeStore.trialEndsAt && activeStore.trialEndsAt <= new Date();
+            const isPaidPlan = !activeStore.trialEndsAt && activeStore.plan !== "free";
 
-            if (isTrialExpired) {
-                return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar adicionando vídeos.", trialExpired: true });
+            if (isTrialExpired || (!isTrialActive && !isPaidPlan)) {
+                return res.status(403).json({ error: "Seu trial gratuito expirou ou não há plano ativo. Assine um plano para continuar adicionando vídeos.", trialExpired: true });
             }
 
-            const limits = isTrialActive ? TRIAL_LIMITS : (PLANS[planId] || TRIAL_LIMITS);
+            const limits = PLANS[planId] || TRIAL_LIMITS;
 
             const [countRes] = await db.select({ count: sql`count(*)`.mapWith(Number) }).from(shoppableVideos).where(eq(shoppableVideos.storeId, storeId));
             const count = countRes.count;
@@ -1025,6 +1220,7 @@ export function registerRoutes(app: Express) {
                     await db.update(stores).set({
                         plan: planId,
                         currentCycleViews: 0,
+                        trialEndsAt: null, // No longer a trial once paid
                     }).where(eq(stores.id, storeId));
                 }
 

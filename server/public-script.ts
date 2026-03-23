@@ -1,6 +1,7 @@
 import { embedStyles } from "./embed/styles.js";
 import { layout3DCard } from "./embed/layout-3d-card.js";
 import { layoutSlider } from "./embed/layout-slider.js";
+import { layoutStories } from "./embed/layout-stories.js";
 
 export const publicScript = `
 (function() {
@@ -15,6 +16,8 @@ ${layout3DCard}
 
 ${layoutSlider}
 
+${layoutStories}
+
   function buildCarousel(el, data) {
     var layout = data.carousel.layout || "3d-card";
     if (layout === "3d-card") {
@@ -28,8 +31,10 @@ ${layoutSlider}
 
   function init() {
     injectStyles();
-    var els = document.querySelectorAll("[data-vidshop-carousel], [data-onstore-carousel]");
-    els.forEach(function(el) {
+    
+    // Initialize Carousels
+    var elsCarousels = document.querySelectorAll("[data-vidshop-carousel], [data-onstore-carousel]");
+    elsCarousels.forEach(function(el) {
       var cid = el.getAttribute("data-vidshop-carousel") || el.getAttribute("data-onstore-carousel");
       if (!cid || el.dataset.vidshopLoaded) return;
       el.dataset.vidshopLoaded = "1";
@@ -37,6 +42,18 @@ ${layoutSlider}
         .then(function(r) { return r.json(); })
         .then(function(data) { buildCarousel(el, data); })
         .catch(function(e) { console.warn("[Vidshop] Erro carrossel #" + cid, e); });
+    });
+
+    // Initialize Stories
+    var elsStories = document.querySelectorAll("[data-vidshop-story]");
+    elsStories.forEach(function(el) {
+      var sid = el.getAttribute("data-vidshop-story");
+      if (!sid || el.dataset.vidshopLoaded) return;
+      el.dataset.vidshopLoaded = "1";
+      fetch(API_ORIGIN + "/api/public/stories/" + sid)
+        .then(function(r) { return r.json(); })
+        .then(function(data) { buildStories(el, data); })
+        .catch(function(e) { console.warn("[Vidshop] Erro story #" + sid, e); });
     });
   }
 

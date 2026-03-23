@@ -12,6 +12,8 @@ import CarouselEditorPage from "./pages/CarouselEditorPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import StoresPage from "./pages/StoresPage";
+import StoriesPage from "./pages/StoriesPage";
+import StoryEditorPage from "./pages/StoryEditorPage";
 import StoreSettingsPage from "./pages/StoreSettingsPage";
 import BillingPage from "./pages/BillingPage";
 import { StoreProvider } from "./context/StoreContext";
@@ -48,6 +50,9 @@ export default function App() {
           <Route path="carousels" element={<CarouselsPage />} />
           <Route path="carousels/new" element={<CarouselEditorPage />} />
           <Route path="carousels/edit/:id" element={<CarouselEditorPage />} />
+          <Route path="stories" element={<StoriesPage />} />
+          <Route path="stories/new" element={<StoryEditorPage />} />
+          <Route path="stories/edit/:id" element={<StoryEditorPage />} />
           <Route path="settings" element={<StoreSettingsPage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="*" element={

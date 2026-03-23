@@ -16,7 +16,8 @@ import {
   CreditCard,
   Store,
   ChevronDown,
-  ArrowUpDown
+  ArrowUpDown,
+  CircleDot
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,7 +49,8 @@ const navGroups = [
     items: [
       { icon: PlaySquare, label: "Vídeos", path: "/dashboard/videos" },
       { icon: LayoutGrid, label: "Carrosseis", path: "/dashboard/carousels" },
-          ],
+      { icon: CircleDot, label: "Stories", path: "/dashboard/stories" },
+    ],
   },
   {
     label: "Catálogo",
@@ -113,6 +115,8 @@ export default function DashboardPage() {
   else if (path === "/dashboard/products") { title = "Produtos"; subtitle = "Gerencie seu inventário importado"; }
   else if (path === "/dashboard/import") { title = "Importação"; subtitle = "Adicione produtos via feed XML"; }
   else if (path.startsWith("/dashboard/videos")) { title = "Shoppable Videos"; subtitle = "Crie experiências interativas para seus clientes"; }
+  else if (path.startsWith("/dashboard/carousels")) { title = "Carrosseis"; subtitle = "Gerencie seus widgets de vídeo carrossel"; }
+  else if (path.startsWith("/dashboard/stories")) { title = "Stories"; subtitle = "Gerencie seus widgets estilo Instagram"; }
   else if (path.startsWith("/dashboard/settings")) { title = "Configurações"; subtitle = "Ajuste os parâmetros da loja e acesso"; }
   else if (path.startsWith("/dashboard/billing")) { title = "Assinatura"; subtitle = "Gerencie seu plano e histórico"; }
 

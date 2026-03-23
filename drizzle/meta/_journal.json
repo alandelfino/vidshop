@@ -22,6 +22,13 @@
       "when": 1774186667583,
       "tag": "0002_outstanding_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774296059557,
+      "tag": "0003_short_black_bolt",
+      "breakpoints": true
     }
   ]
 }
