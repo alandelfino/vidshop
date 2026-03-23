@@ -222,9 +222,22 @@ export function registerRoutes(app: Express) {
         "/api/media/upload",
         authMiddleware,
         (req: Request, res: Response, next: NextFunction) => {
+            const R2_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+            const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+            
+            console.log("[upload] Starting upload attempt...");
+            console.log("[upload] Environment check:", {
+                hasAccountId: !!R2_ACCOUNT_ID,
+                hasBucket: !!R2_BUCKET,
+                hasAccessKey: !!process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+                hasSecretKey: !!process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+            });
+
             upload.single("file")(req, res, (err) => {
                 if (err) {
-                    console.error("[upload] Multer error:", err);
+                    console.error("CRITICAL UPLOAD ERROR:", err);
+                    console.log("Error Message:", err.message);
+                    console.log("Error Stack:", err.stack);
                     res.status(400).json({ error: err.message });
                     return;
                 }

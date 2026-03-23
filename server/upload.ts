@@ -22,6 +22,8 @@ export const s3Client = new S3Client({
   },
 });
 
+console.log(s3Client)
+
 const storage = multerS3({
   s3: s3Client,
   bucket: R2_BUCKET || "",
@@ -31,6 +33,8 @@ const storage = multerS3({
     cb(null, `${uuidv4()}${ext}`);
   },
 });
+
+console.log(storage)
 
 function fileFilter(
   _req: Express.Request,
@@ -49,3 +53,6 @@ export const upload = multer({
   fileFilter,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
 });
+
+console.log(upload)
+
