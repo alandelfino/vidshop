@@ -224,6 +224,7 @@ export function registerRoutes(app: Express) {
         (req: Request, res: Response, next: NextFunction) => {
             upload.single("file")(req, res, (err) => {
                 if (err) {
+                    console.error("[upload] Multer error:", err);
                     res.status(400).json({ error: err.message });
                     return;
                 }
