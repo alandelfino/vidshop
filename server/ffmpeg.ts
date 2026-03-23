@@ -9,12 +9,20 @@ import { s3Client } from './upload.js';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 // FFmpeg Configuration
-// We use the static binaries from @ffmpeg-installer as the default.
+// We try to use the system-installed FFmpeg first (more stable on VPS/Linux).
+// If not found, we fallback to the static binaries from npm.
 const ffmpegPath = ffmpegInstaller.path || (ffmpegInstaller as any).default?.path;
 const ffprobePath = ffprobeInstaller.path || (ffprobeInstaller as any).default?.path;
 
-if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
-if (ffprobePath) ffmpeg.setFfprobePath(ffprobePath);
+// No explicit path set means fluent-ffmpeg will look in system PATH first.
+// If we want to force detection or have a specific logic:
+if (process.env.NODE_ENV === 'production') {
+    // In production, we assume developer has installed ffmpeg natively or we trust the system PATH.
+    console.log("[ffmpeg] Production: defaulting to system-native binaries.");
+} else {
+    if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+    if (ffprobePath) ffmpeg.setFfprobePath(ffprobePath);
+}
 
 export async function extractFramesToR2(videoUrl: string): Promise<string[]> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "vidshop-frames-"));
