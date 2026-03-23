@@ -8,10 +8,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { s3Client } from './upload.js';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 
-// @ts-ignore
-ffmpeg.setFfmpegPath(ffmpegInstaller.path || ffmpegInstaller.default?.path);
-// @ts-ignore
-ffmpeg.setFfprobePath(ffprobeInstaller.path || ffprobeInstaller.default?.path);
+// FFmpeg Configuration
+// On Render/Production, it's better to use the system ffmpeg if available.
+// The static binaries in @ffmpeg-installer can sometimes SIGSEGV in certain environments.
+const ffmpegPath = ffmpegInstaller.path || (ffmpegInstaller as any).default?.path;
+const ffprobePath = ffprobeInstaller.path || (ffprobeInstaller as any).default?.path;
+
+if (process.env.NODE_ENV === 'production') {
+    // On production, we try to use system binaries if they exist.
+    // If not, we fall back to the installers.
+    console.log("[ffmpeg] Production environment detected. Using system paths if available.");
+} else {
+    if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+    if (ffprobePath) ffmpeg.setFfprobePath(ffprobePath);
+}
 
 export async function extractFramesToR2(videoUrl: string): Promise<string[]> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "vidshop-frames-"));
