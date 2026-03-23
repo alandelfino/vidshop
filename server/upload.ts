@@ -9,6 +9,11 @@ const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
 const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME;
 
+console.log(R2_ACCOUNT_ID)
+console.log(R2_ACCESS_KEY_ID)
+console.log(R2_SECRET_ACCESS_KEY)
+console.log(R2_BUCKET)
+
 if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
   console.warn("Aviso: Credenciais do Cloudflare R2 não estão totalmente configuradas no .env. O upload falhará.");
 }
