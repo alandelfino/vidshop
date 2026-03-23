@@ -9,18 +9,17 @@ import { s3Client } from './upload.js';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 // FFmpeg Configuration
-// On Render/Production, it's better to use the system ffmpeg if available.
-// The static binaries in @ffmpeg-installer can sometimes SIGSEGV in certain environments.
-const ffmpegPath = ffmpegInstaller.path || (ffmpegInstaller as any).default?.path;
-const ffprobePath = ffprobeInstaller.path || (ffprobeInstaller as any).default?.path;
-
-if (process.env.NODE_ENV === 'production') {
-    // On production, we try to use system binaries if they exist.
-    // If not, we fall back to the installers.
-    console.log("[ffmpeg] Production environment detected. Using system paths if available.");
-} else {
+// In development, we use the static binaries from @ffmpeg-installer.
+// In production (Render), we rely on the system-native FFmpeg as it's more stable.
+if (process.env.NODE_ENV !== 'production') {
+    const ffmpegPath = ffmpegInstaller.path || (ffmpegInstaller as any).default?.path;
+    const ffprobePath = ffprobeInstaller.path || (ffprobeInstaller as any).default?.path;
+    
     if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
     if (ffprobePath) ffmpeg.setFfprobePath(ffprobePath);
+    console.log("[ffmpeg] Development mode: Using static npm binaries.");
+} else {
+    console.log("[ffmpeg] Production mode: Using system-native binaries.");
 }
 
 export async function extractFramesToR2(videoUrl: string): Promise<string[]> {
