@@ -4,10 +4,10 @@ export const embedStyles =
         var style = document.createElement("style");
         style.id = "vidshop-frc-styles";
         style.textContent =
-            ".fashion-reels-carousel { box-sizing: border-box; width: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 60px 0; padding-top: 0px; contain: layout paint style; background-color: transparent; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; } " +
+            ".fashion-reels-carousel { box-sizing: border-box; width: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 60px 0; padding-top: 0px; contain: layout paint style; background-color: transparent; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; container-type: inline-size; container-name: vcarousel; } " +
             ".fashion-reels-carousel * { box-sizing: border-box; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; } " +
             ".fashion-reels-carousel .frc-carousel { position: relative; width: 100%; height: 500px; display: flex; align-items: center; justify-content: center; isolation: isolate; perspective: 1200px; } " +
-            ".fashion-reels-carousel .frc-slide { position: absolute; width: auto; height: 100%; aspect-ratio: 9 / 16; border-radius: 24px; overflow: hidden; opacity: 0; transform: translateX(0) scale(.8) rotateY(0deg); transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease, box-shadow 0.6s ease; will-change: transform, opacity; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: #fff; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); } " +
+            ".fashion-reels-carousel .frc-slide { position: absolute; width: auto; height: 100%; aspect-ratio: 9 / 16; border-radius: 24px; overflow: hidden; opacity: 0; transform: translateX(0) scale(.8) rotateY(0deg); transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease, box-shadow 0.6s ease; will-change: transform, opacity; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: #fff; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); container-type: inline-size; container-name: vslide; } " +
             ".fashion-reels-carousel .frc-slide video { width: 100%; height: 100%; object-fit: cover; display: block; background: #fff; transition: filter 0.6s ease; filter: brightness(0.6); } " +
             ".fashion-reels-carousel .frc-slide.is-center { transform: translateX(0) scale(1) rotateY(0deg); opacity: 1; z-index: 5; pointer-events: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); } " +
             ".fashion-reels-carousel .frc-slide.is-center video { filter: brightness(1); } " +
@@ -17,10 +17,10 @@ export const embedStyles =
             ".fashion-reels-carousel .frc-slide.is-right-2 { transform: translateX(160%) scale(.7) rotateY(-20deg); opacity: .4; z-index: 3; } " +
             ".fashion-reels-carousel .frc-slide.is-hidden-left { transform: translateX(-220%) scale(.6) rotateY(25deg); opacity: 0; z-index: 1; } " +
             ".fashion-reels-carousel .frc-slide.is-hidden-right { transform: translateX(220%) scale(.6) rotateY(-25deg); opacity: 0; z-index: 1; } " +
-            "@media (max-width: 900px) { .fashion-reels-carousel .frc-carousel { height: 450px; } } " +
-            "@media (max-width: 600px) { " +
+            "@container vcarousel (max-width: 900px) { .fashion-reels-carousel .frc-carousel { height: 450px; } } " +
+            "@container vcarousel (max-width: 600px) { " +
             "  .fashion-reels-carousel { padding: 50px 0; } " +
-            "  .fashion-reels-carousel .frc-carousel { height: calc(76vw * 16 / 9); max-height: 85vh; min-height: 380px; perspective: 800px; } " +
+            "  .fashion-reels-carousel .frc-carousel { height: calc(76cqi * 16 / 9); max-height: 85vh; min-height: 380px; perspective: 800px; } " +
             "  .fashion-reels-carousel .frc-slide { width: 76%; max-width: calc(85vh * 9 / 16); height: auto; aspect-ratio: 9 / 16; border-radius: 18px; } " +
             "  .fashion-reels-carousel .frc-slide.is-left-1 { transform: translateX(-65%) scale(.85) rotateY(20deg); opacity: 0.9; } " +
             "  .fashion-reels-carousel .frc-slide.is-right-1 { transform: translateX(65%) scale(.85) rotateY(-20deg); opacity: 0.9; } " +
@@ -30,42 +30,44 @@ export const embedStyles =
             "  .fashion-reels-carousel .frc-slide.is-hidden-right { transform: translateX(160%) scale(.6) rotateY(-35deg); opacity: 0; } " +
             "} " +
             "@media (prefers-reduced-motion: reduce) { .fashion-reels-carousel .frc-slide { transition: none; } } " +
-            ".fashion-reels-carousel .frc-controls { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transition: opacity 0.3s ease; z-index: 10; pointer-events: none; } " +
-            ".fashion-reels-carousel .frc-slide.is-center .frc-controls { opacity: 1; pointer-events: auto; } " +
-            ".fashion-reels-carousel .frc-btn { background: transparent; border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 0.2s, transform 0.2s; } " +
-            ".fashion-reels-carousel .frc-btn:active { transform: scale(0.9); } " +
-            ".fashion-reels-carousel .frc-btn:hover { background: rgba(0, 0, 0, 0.7); } " +
-            ".fashion-reels-carousel .frc-btn svg { width: 20px; height: 20px; } " +
-            ".vidshop-slider-carousel { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 40px 0; font-family: inherit; -webkit-user-select: none; user-select: none; } " +
+            ".vidshop-controls { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transition: opacity 0.3s ease; z-index: 30; pointer-events: none; } " +
+            ".fashion-reels-carousel .frc-slide.is-center .vidshop-controls, .vidshop-slider-slide.is-playing .vidshop-controls { opacity: 1; pointer-events: auto; } " +
+            ".vidshop-btn { background: transparent; border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 0.2s, transform 0.2s; } " +
+            ".vidshop-btn:active { transform: scale(0.9); } " +
+            ".vidshop-btn:hover { background: rgba(0, 0, 0, 0.7); } " +
+            ".vidshop-btn svg { width: 20px; height: 20px; flex-shrink: 0; } " +
+            ".vidshop-slider-carousel { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 40px 0; font-family: inherit; -webkit-user-select: none; user-select: none; container-type: inline-size; container-name: vcarousel; } " +
             ".vidshop-slider-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 16px 20px; width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; } " +
             ".vidshop-slider-track::-webkit-scrollbar { display: none; } " +
-            ".vidshop-slider-slide { position: relative; flex: 0 0 calc(16.666% - 13.33px); aspect-ratio: 9/16; border-radius: 16px; overflow: hidden; scroll-snap-align: start; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); isolation: isolate; cursor: pointer; } " +
-            "@media (max-width: 1400px) { .vidshop-slider-slide { flex: 0 0 calc(20% - 12.8px); } } " +
-            "@media (max-width: 1100px) { .vidshop-slider-slide { flex: 0 0 calc(25% - 12px); } } " +
-            "@media (max-width: 900px) { .vidshop-slider-slide { flex: 0 0 calc(40% - 13px); } } " +
-            "@media (max-width: 600px) { " +
+            ".vidshop-slider-slide { position: relative; flex: 0 0 calc(16.666% - 13.33px); aspect-ratio: 9/16; border-radius: 16px; overflow: hidden; scroll-snap-align: start; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); isolation: isolate; cursor: pointer; container-type: inline-size; container-name: vslide; } " +
+            "@container vcarousel (max-width: 1400px) { .vidshop-slider-slide { flex: 0 0 calc(20% - 12.8px); } } " +
+            "@container vcarousel (max-width: 1100px) { .vidshop-slider-slide { flex: 0 0 calc(25% - 12px); } } " +
+            "@container vcarousel (max-width: 900px) { .vidshop-slider-slide { flex: 0 0 calc(40% - 13px); } } " +
+            "@container vcarousel (max-width: 600px) { " +
             "  .vidshop-slider-track { padding: 12px 5%; gap: 12px; } " +
             "  .vidshop-slider-slide { flex: 0 0 82%; scroll-snap-align: center; border-radius: 12px; } " +
             "} " +
             ".vidshop-slider-slide video { width: 100%; height: 100%; object-fit: cover; display: block; } " +
-            ".vidshop-slider-play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); z-index: 10; pointer-events: none; opacity: 1; transition: opacity 0.3s; } " +
+            ".vidshop-slider-play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.15); z-index: 10; pointer-events: none; opacity: 1; transition: opacity 0.3s; } " +
             ".vidshop-slider-slide.is-playing .vidshop-slider-play-overlay { opacity: 0; } " +
-            ".vidshop-slider-play-overlay svg { width: 48px; height: 48px; fill: white; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); } " +
-            ".fashion-reels-carousel .frc-product-card, .vidshop-slider-slide .frc-product-card { position: absolute; bottom: 20px; left: 16px; right: 16px; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 12px; color: #fff; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(10px); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.15); background: transparent; } " +
-            ".fashion-reels-carousel .frc-product-card.is-active, .vidshop-slider-slide .frc-product-card.is-active { opacity: 1; pointer-events: auto; transform: translateY(0); } " +
-            ".fashion-reels-carousel .frc-product-img, .vidshop-slider-slide .frc-product-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: #fff; flex-shrink: 0; } " +
+            ".vidshop-slider-play-overlay svg { width: 36px; height: 36px; fill: rgba(255,255,255,0.9); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); } " +
+            ".fashion-reels-carousel .frc-slide::after, .vidshop-slider-slide::after { display: none; } " +
+            ".fashion-reels-carousel .frc-product-card, .vidshop-slider-slide .frc-product-card { position: absolute; bottom: 12px; left: 10px; right: 10px; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 10px; color: #fff; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); transform: translateY(12px) scale(0.98); background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 24px rgba(0,0,0,0.15); font-family: inherit; } " +
+            ".fashion-reels-carousel .frc-product-card.is-active, .vidshop-slider-slide .frc-product-card.is-active { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); } " +
+            ".fashion-reels-carousel .frc-product-img, .vidshop-slider-slide .frc-product-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: #fff; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.2); } " +
             ".fashion-reels-carousel .frc-product-info, .vidshop-slider-slide .frc-product-info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; } " +
-            ".fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { margin: 0 0 2px 0; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; font-family: sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,0.5); } " +
-            ".fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { margin: 0; font-size: 14px; font-weight: 700; color: #fff; font-family: sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,0.5); } " +
-            ".fashion-reels-carousel .frc-product-btn, .vidshop-slider-slide .frc-product-btn { width: auto; height: auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0; transition: transform 0.2s; color: #fff; padding: 3px; } " +
-            ".fashion-reels-carousel .frc-product-btn:hover, .vidshop-slider-slide .frc-product-btn:hover { transform: scale(1.05); } " +
-            ".fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 16px; height: 16px; stroke-width: 2.5; } " +
-            "@media (max-width: 600px) { " +
-            "  .fashion-reels-carousel .frc-product-card, .vidshop-slider-slide .frc-product-card { bottom: 12px; left: 10px; right: 10px; padding: 8px; gap: 8px; border-radius: 10px; } " +
-            "  .fashion-reels-carousel .frc-product-img, .vidshop-slider-slide .frc-product-img { width: 36px; height: 36px; border-radius: 6px; } " +
-            "  .fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { font-size: 11px; margin-bottom: 2px; } " +
-            "  .fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { font-size: 13px; } " +
-            "  .fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 14px; height: 14px; } " +
+            ".fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { margin: 0 0 2px 0; font-size: 11px; font-weight: 500; font-family: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; letter-spacing: 0.2px; opacity: 0.9; } " +
+            ".fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { margin: 0; font-size: 13px; font-weight: 800; color: #fff; font-family: inherit; letter-spacing: -0.2px; } " +
+            ".fashion-reels-carousel .frc-product-btn, .vidshop-slider-slide .frc-product-btn { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0; transition: transform 0.2s, background 0.2s; color: #fff; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); } " +
+            ".fashion-reels-carousel .frc-product-btn:hover, .vidshop-slider-slide .frc-product-btn:hover { transform: scale(1.05); background: rgba(255,255,255,0.2); } " +
+            ".fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 13px; height: 13px; stroke-width: 2.5; } " +
+            "@container vslide (max-width: 250px) { " +
+            "  .fashion-reels-carousel .frc-product-card, .vidshop-slider-slide .frc-product-card { bottom: 10px; left: 8px; right: 8px; padding: 6px; gap: 6px; border-radius: 10px; } " +
+            "  .fashion-reels-carousel .frc-product-img, .vidshop-slider-slide .frc-product-img { width: 34px; height: 34px; border-radius: 6px; } " +
+            "  .fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { font-size: 10px; } " +
+            "  .fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { font-size: 11px; letter-spacing: -0.5px; } " +
+            "  .fashion-reels-carousel .frc-product-btn, .vidshop-slider-slide .frc-product-btn { width: 24px; height: 24px; } " +
+            "  .fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 11px; height: 11px; } } " +
             ".vidshop-shimmer { animation: vidshop-shimmer-ani 1.8s ease-in-out infinite; background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%); background-size: 200% 100%; } " +
             "@keyframes vidshop-shimmer-ani { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } } " +
             ".vidshop-shimmer { animation: vidshop-shimmer-ani 1.8s ease-in-out infinite !important; background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%) !important; background-size: 200% 100% !important; } " +
@@ -76,7 +78,7 @@ export const embedStyles =
             ".vidshop-skeleton-item { box-sizing: border-box !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 8px !important; flex-shrink: 0 !important; visibility: visible !important; } " +
             ".vidshop-skeleton-circle { box-sizing: border-box !important; width: 72px !important; height: 72px !important; border-radius: 50% !important; background: #eee !important; visibility: visible !important; } " +
             ".vidshop-skeleton-text { box-sizing: border-box !important; width: 54px !important; height: 10px !important; border-radius: 4px !important; background: #eee !important; visibility: visible !important; } " +
-            ".vidshop-fade-in { animation: vidshop-fade-in-ani 0.5s ease forwards !important; opacity: 0 !important; } " +
+            ".vidshop-fade-in { animation: vidshop-fade-in-ani 0.5s ease forwards; opacity: 0; } " +
             "@keyframes vidshop-fade-in-ani { from { opacity: 0; } to { opacity: 1; } } " +
             "@media (max-width: 600px) { " +
             "  .vidshop-skeleton-carousel { min-height: 320px !important; padding: 20px 10px !important; } " +

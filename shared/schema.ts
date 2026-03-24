@@ -138,6 +138,11 @@ export const videoCarousels = pgTable("video_carousels", {
   showProducts: boolean("show_products").notNull().default(true),
   previewTime: integer("preview_time").notNull().default(3),
 
+  // Card Styles
+  cardBorderWidth: integer("card_border_width").notNull().default(0),
+  cardBorderColor: text("card_border_color").notNull().default("#000000"),
+  cardBorderRadius: integer("card_border_radius").notNull().default(12),
+
   // Layout customization
   maxWidth: text("max_width").notNull().default("100%"),
   marginTop: text("margin_top").notNull().default("0px"),
@@ -190,6 +195,9 @@ export const videoStories = pgTable("video_stories", {
   borderGradient: text("border_gradient").notNull().default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
   borderEnabled: boolean("border_enabled").notNull().default(true),
   showProducts: boolean("show_products").notNull().default(true),
+  bubbleWidth: text("bubble_width").notNull().default("80px"),
+  bubbleHeight: text("bubble_height").notNull().default("80px"),
+  borderRadius: integer("border_radius").notNull().default(8),
   
   // Layout customization
   maxWidth: text("max_width").notNull().default("100%"),

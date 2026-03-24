@@ -2,8 +2,8 @@ import { apiFetch } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Loader2, Save, Plus, Search, X, GripVertical, Video, Code2, Copy, Check, CircleDot, Eye, 
-  Monitor, Tablet, Smartphone, ZoomIn, ZoomOut, RotateCcw
+    ArrowLeft, Loader2, Save, Plus, Search, X, GripVertical, Video, Code2, Copy, Check, CircleDot, Eye,
+    Monitor, Tablet, Smartphone, ZoomIn, ZoomOut, RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,556 +12,613 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface ShoppableVideo {
-  id: number;
-  title: string;
-  description: string | null;
-  mediaUrl: string;
-  thumbnailUrl?: string | null;
-  productsList?: any[];
+    id: number;
+    title: string;
+    description: string | null;
+    mediaUrl: string;
+    thumbnailUrl?: string | null;
+    productsList?: any[];
 }
 
 interface StoryVideoEntry {
-  videoId: number;
-  video?: ShoppableVideo;
+    videoId: number;
+    video?: ShoppableVideo;
 }
 
 export default function StoryEditorPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const isNew = !id || id === "new";
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const isNew = !id || id === "new";
 
-  const [loading, setLoading] = useState(!isNew);
-  const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(!isNew);
+    const [saving, setSaving] = useState(false);
 
-  // Form fields
-  const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [shape, setShape] = useState("round");
-  const [showProducts, setShowProducts] = useState(true);
-  
-  // Customization
-  const [color1, setColor1] = useState("#f09433");
-  const [color2, setColor2] = useState("#bc1888");
-  const [angle, setAngle] = useState(45);
-  const [borderEnabled, setBorderEnabled] = useState(true);
+    // Form fields
+    const [name, setName] = useState("");
+    const [title, setTitle] = useState("");
+    const [shape, setShape] = useState("round");
+    const [showProducts, setShowProducts] = useState(true);
+    const [bubbleWidth, setBubbleWidth] = useState("80px");
+    const [bubbleHeight, setBubbleHeight] = useState("80px");
+    const [borderRadius, setBorderRadius] = useState(8);
 
-  // Layout customization
-  const [maxWidth, setMaxWidth] = useState("100%");
-  const [marginTop, setMarginTop] = useState("0px");
-  const [marginRight, setMarginRight] = useState("0px");
-  const [marginBottom, setMarginBottom] = useState("0px");
-  const [marginLeft, setMarginLeft] = useState("0px");
-  const [paddingTop, setPaddingTop] = useState("0px");
-  const [paddingRight, setPaddingRight] = useState("0px");
-  const [paddingBottom, setPaddingBottom] = useState("0px");
-  const [paddingLeft, setPaddingLeft] = useState("0px");
-  
-  const [videoList, setVideoList] = useState<StoryVideoEntry[]>([]);
+    // Customization
+    const [color1, setColor1] = useState("#f09433");
+    const [color2, setColor2] = useState("#bc1888");
+    const [angle, setAngle] = useState(45);
+    const [borderEnabled, setBorderEnabled] = useState(true);
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<ShoppableVideo[]>([]);
-  const [searching, setSearching] = useState(false);
+    // Layout customization
+    const [maxWidth, setMaxWidth] = useState("100%");
+    const [marginTop, setMarginTop] = useState("0px");
+    const [marginRight, setMarginRight] = useState("0px");
+    const [marginBottom, setMarginBottom] = useState("0px");
+    const [marginLeft, setMarginLeft] = useState("0px");
+    const [paddingTop, setPaddingTop] = useState("0px");
+    const [paddingRight, setPaddingRight] = useState("0px");
+    const [paddingBottom, setPaddingBottom] = useState("0px");
+    const [paddingLeft, setPaddingLeft] = useState("0px");
 
-  // Preview Modal
-  const [previewOpen, setPreviewOpen] = useState(false);
+    const [videoList, setVideoList] = useState<StoryVideoEntry[]>([]);
 
-  // Drag re-order
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
+    // Search state
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<ShoppableVideo[]>([]);
+    const [searching, setSearching] = useState(false);
 
-  useEffect(() => {
-    if (isNew) return;
-    const load = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await apiFetch(`/api/stories/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) { navigate("/dashboard/stories"); return; }
-        const data = await res.json();
-        setName(data.name || "");
-        setTitle(data.title || "");
-        setShape(data.shape || "round");
-        setShowProducts(data.showProducts ?? true);
-        
-        // Parse gradient
-        const grad = data.borderGradient || "";
-        if (grad.includes("linear-gradient")) {
-          const match = grad.match(/linear-gradient\((\d+)deg,\s*(#[a-fA-F0-9]+).*(#[a-fA-F0-9]+)/);
-          if (match) {
-            setAngle(parseInt(match[1]));
-            setColor1(match[2]);
-            setColor2(match[3]);
-          }
+    // Preview Modal
+    const [previewOpen, setPreviewOpen] = useState(false);
+
+    // Drag re-order
+    const [dragIdx, setDragIdx] = useState<number | null>(null);
+    const [dragOver, setDragOver] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (isNew) return;
+        const load = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await apiFetch(`/api/stories/${id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) { navigate("/dashboard/stories"); return; }
+                const data = await res.json();
+                setName(data.name || "");
+                setTitle(data.title || "");
+                setShape(data.shape || "round");
+                setShowProducts(data.showProducts ?? true);
+                setBubbleWidth(data.bubbleWidth || "80px");
+                setBubbleHeight(data.bubbleHeight || "80px");
+                setBorderRadius(data.borderRadius ?? 8);
+
+                // Parse gradient
+                const grad = data.borderGradient || "";
+                if (grad.includes("linear-gradient")) {
+                    const match = grad.match(/linear-gradient\((\d+)deg,\s*(#[a-fA-F0-9]+).*(#[a-fA-F0-9]+)/);
+                    if (match) {
+                        setAngle(parseInt(match[1]));
+                        setColor1(match[2]);
+                        setColor2(match[3]);
+                    }
+                }
+
+                setBorderEnabled(data.borderEnabled ?? true);
+                setMaxWidth(data.maxWidth || "100%");
+                setMarginTop(data.marginTop || "0px");
+                setMarginRight(data.marginRight || "0px");
+                setMarginBottom(data.marginBottom || "0px");
+                setMarginLeft(data.marginLeft || "0px");
+                setPaddingTop(data.paddingTop || "0px");
+                setPaddingRight(data.paddingRight || "0px");
+                setPaddingBottom(data.paddingBottom || "0px");
+                setPaddingLeft(data.paddingLeft || "0px");
+                setVideoList((data.videos || []).map((v: any) => ({
+                    videoId: v.id,
+                    video: v
+                })));
+            } finally {
+                setLoading(false);
+            }
+        };
+        load();
+    }, [id, isNew, navigate]);
+
+    const handleSearch = async () => {
+        setSearching(true);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await apiFetch("/api/videos", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const all: ShoppableVideo[] = (await res.json()).videos || [];
+                const q = searchQuery.trim().toLowerCase();
+                setSearchResults(q ? all.filter(v => v.title.toLowerCase().includes(q)) : all);
+            }
+        } finally {
+            setSearching(false);
         }
-
-        setBorderEnabled(data.borderEnabled ?? true);
-        setMaxWidth(data.maxWidth || "100%");
-        setMarginTop(data.marginTop || "0px");
-        setMarginRight(data.marginRight || "0px");
-        setMarginBottom(data.marginBottom || "0px");
-        setMarginLeft(data.marginLeft || "0px");
-        setPaddingTop(data.paddingTop || "0px");
-        setPaddingRight(data.paddingRight || "0px");
-        setPaddingBottom(data.paddingBottom || "0px");
-        setPaddingLeft(data.paddingLeft || "0px");
-        setVideoList((data.videos || []).map((v: any) => ({
-          videoId: v.id,
-          video: v
-        })));
-      } finally {
-        setLoading(false);
-      }
     };
-    load();
-  }, [id, isNew, navigate]);
 
-  const handleSearch = async () => {
-    setSearching(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await apiFetch("/api/videos", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const all: ShoppableVideo[] = (await res.json()).videos || [];
-        const q = searchQuery.trim().toLowerCase();
-        setSearchResults(q ? all.filter(v => v.title.toLowerCase().includes(q)) : all);
-      }
-    } finally {
-      setSearching(false);
-    }
-  };
+    const addVideo = (v: ShoppableVideo) => {
+        if (videoList.some(e => e.videoId === v.id)) return;
+        setVideoList(prev => [...prev, { videoId: v.id, video: v }]);
+        setSearchResults([]);
+        setSearchQuery("");
+    };
 
-  const addVideo = (v: ShoppableVideo) => {
-    if (videoList.some(e => e.videoId === v.id)) return;
-    setVideoList(prev => [...prev, { videoId: v.id, video: v }]);
-    setSearchResults([]);
-    setSearchQuery("");
-  };
+    const removeVideo = (idx: number) => setVideoList(prev => prev.filter((_, i) => i !== idx));
 
-  const removeVideo = (idx: number) => setVideoList(prev => prev.filter((_, i) => i !== idx));
+    const handleDragStart = (idx: number) => setDragIdx(idx);
+    const handleDragEnter = (idx: number) => setDragOver(idx);
+    const handleDragEnd = () => {
+        if (dragIdx !== null && dragOver !== null && dragIdx !== dragOver) {
+            const next = [...videoList];
+            const [moved] = next.splice(dragIdx, 1);
+            next.splice(dragOver, 0, moved);
+            setVideoList(next);
+        }
+        setDragIdx(null);
+        setDragOver(null);
+    };
 
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragEnter = (idx: number) => setDragOver(idx);
-  const handleDragEnd = () => {
-    if (dragIdx !== null && dragOver !== null && dragIdx !== dragOver) {
-      const next = [...videoList];
-      const [moved] = next.splice(dragIdx, 1);
-      next.splice(dragOver, 0, moved);
-      setVideoList(next);
-    }
-    setDragIdx(null);
-    setDragOver(null);
-  };
+    const handleSave = async () => {
+        if (!name.trim()) { alert("O nome da story é obrigatório."); return; }
+        setSaving(true);
+        try {
+            const token = localStorage.getItem("token");
+            const generatedGradient = `linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`;
+            const payload = {
+                name, title, shape, borderGradient: generatedGradient, borderEnabled, showProducts,
+                maxWidth, marginTop, marginRight, marginBottom, marginLeft,
+                paddingTop, paddingRight, paddingBottom, paddingLeft,
+                bubbleWidth, bubbleHeight, borderRadius,
+                videos: videoList.map(e => ({ id: e.videoId }))
+            };
 
-  const handleSave = async () => {
-    if (!name.trim()) { alert("O nome da story é obrigatório."); return; }
-    setSaving(true);
-    try {
-      const token = localStorage.getItem("token");
-      const generatedGradient = `linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`;
-      const payload = {
-        name, title, shape, borderGradient: generatedGradient, borderEnabled, showProducts,
-        maxWidth, marginTop, marginRight, marginBottom, marginLeft,
-        paddingTop, paddingRight, paddingBottom, paddingLeft,
-        videos: videoList.map(e => ({ id: e.videoId }))
-      };
+            if (isNew) {
+                const res = await apiFetch("/api/stories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error("Erro ao criar story");
+                const created = await res.json();
+                navigate(`/dashboard/stories/edit/${created.story.id}`, { replace: true });
+            } else {
+                const res = await apiFetch(`/api/stories/${id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error("Erro ao salvar");
+            }
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
 
-      if (isNew) {
-        const res = await apiFetch("/api/stories", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error("Erro ao criar story");
-        const created = await res.json();
-        navigate(`/dashboard/stories/edit/${created.story.id}`, { replace: true });
-      } else {
-        const res = await apiFetch(`/api/stories/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error("Erro ao salvar");
-      }
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return (
-    <div className="flex h-full items-center justify-center p-24">
-      <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-    </div>
-  );
-
-  return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-10">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-xl px-5 py-3 shadow-sm relative z-10 transition-all">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/stories")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-base font-bold line-clamp-1">{name || (isNew ? "Novo Story Hub" : "Editar Story Hub")}</h1>
-            <p className="text-xs text-muted-foreground">
-               Widget Estilo Instagram · {videoList.length} vídeo{videoList.length !== 1 ? "s" : ""}
-            </p>
-          </div>
+    if (loading) return (
+        <div className="flex h-full items-center justify-center p-24">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => setPreviewOpen(true)} className="flex items-center gap-2">
-            <Monitor className="w-4 h-4" />
-            <span className="hidden sm:inline">Preview</span>
-          </Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 transition-all active:scale-95">
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Salvar
-          </Button>
-        </div>
-      </div>
+    );
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Left: Settings (5 col) */}
-        <div className="lg:col-span-5 flex flex-col gap-5">
-          <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
-            <CardHeader className="pb-4 border-b border-border/50">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                Informações e Estilo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 space-y-5">
-              
-              <div>
-                <Label className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 block">Nome Interno <span className="text-destructive">*</span></Label>
-                <input
-                  type="text"
-                  placeholder="Ex: Stories da Home"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                />
-              </div>
+    return (
+        <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full pb-10">
 
-              <div>
-                <Label className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 block">Formato das Bolinhas</Label>
-                <div className="grid grid-cols-3 gap-2">
-                   {[
-                     { id: 'round', label: 'Círculo', class: 'rounded-full' },
-                     { id: 'rect-9-16', label: '9:16 Arred.', class: 'rounded-lg' },
-                     { id: 'square-9-16', label: '9:16 Quad.', class: 'rounded-none' }
-                   ].map(opt => (
-                     <button
-                       key={opt.id}
-                       onClick={() => setShape(opt.id)}
-                       className={cn(
-                         "flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition-all",
-                         shape === opt.id ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-border/80'
-                       )}
-                     >
-                        <div className={cn("w-8 h-8 border-2 border-primary/40 bg-muted", opt.class)} />
-                        <span className="text-[10px] font-bold uppercase whitespace-nowrap">{opt.label}</span>
-                     </button>
-                   ))}
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Exibir Produtos</Label>
-                    <p className="text-[10px] text-muted-foreground">Mostra produtos vinculados ao vídeo</p>
-                  </div>
-                  <Switch checked={showProducts} onCheckedChange={setShowProducts} />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">Borda Colorida</Label>
-                    <p className="text-[10px] text-muted-foreground">Destaque os stories com gradiente</p>
-                  </div>
-                  <Switch checked={borderEnabled} onCheckedChange={setBorderEnabled} />
-                </div>
-
-                {borderEnabled && (
-                  <div className="space-y-4 animate-in slide-in-from-top-2">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Cor Inicial</Label>
-                        <div className="flex gap-2">
-                          <input type="color" value={color1} onChange={e => setColor1(e.target.value)} className="w-8 h-8 rounded border p-0.5 cursor-pointer bg-background" />
-                          <input type="text" value={color1} onChange={e => setColor1(e.target.value)} className="flex-1 h-8 rounded border px-2 text-[10px] uppercase font-mono bg-background" />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Cor Final</Label>
-                        <div className="flex gap-2">
-                          <input type="color" value={color2} onChange={e => setColor2(e.target.value)} className="w-8 h-8 rounded border p-0.5 cursor-pointer bg-background" />
-                          <input type="text" value={color2} onChange={e => setColor2(e.target.value)} className="flex-1 h-8 rounded border px-2 text-[10px] uppercase font-mono bg-background" />
-                        </div>
-                      </div>
-                    </div>
-                    
+            {/* Header */}
+            <div className="flex items-center justify-between bg-card border border-border rounded-xl px-5 py-3 shadow-sm relative z-10 transition-all">
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/stories")}>
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
                     <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground block">Ângulo do Gradiente</Label>
-                        <span className="text-[10px] font-mono font-bold text-primary">{angle}°</span>
-                      </div>
-                      <input 
-                        type="range" min="0" max="360" step="1" 
-                        value={angle} onChange={e => setAngle(parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                      />
+                        <h1 className="text-base font-bold line-clamp-1">{name || (isNew ? "Novo Story Hub" : "Editar Story Hub")}</h1>
+                        <p className="text-xs text-muted-foreground">
+                            Widget Estilo Instagram · {videoList.length} vídeo{videoList.length !== 1 ? "s" : ""}
+                        </p>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4 pt-4 border-t border-border">
-                <h3 className="text-xs font-bold uppercase text-muted-foreground">Layout e Espaçamento</h3>
-                
-                <div>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Largura Máxima (px, %, rem, vh...)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 1200px ou 100%"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={maxWidth}
-                    onChange={e => setMaxWidth(e.target.value)}
-                  />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Margens Externas</p>
-                    <div className="grid grid-cols-2 gap-2">
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginTop} onChange={e => setMarginTop(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginBottom} onChange={e => setMarginBottom(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginLeft} onChange={e => setMarginLeft(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginRight} onChange={e => setMarginRight(e.target.value)} />
-                       </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Preenchimento (Padding)</p>
-                    <div className="grid grid-cols-2 gap-2">
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingTop} onChange={e => setPaddingTop(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingBottom} onChange={e => setPaddingBottom(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingLeft} onChange={e => setPaddingLeft(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingRight} onChange={e => setPaddingRight(e.target.value)} />
-                       </div>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-3">
+                    <Button variant="outline" onClick={() => setPreviewOpen(true)} className="flex items-center gap-2">
+                        <Monitor className="w-4 h-4" />
+                        <span className="hidden sm:inline">Preview</span>
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 transition-all active:scale-95">
+                        {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                        Salvar
+                    </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right: Video Library (7 col) */}
-        <div className="lg:col-span-7 flex flex-col gap-5">
-           <Card className="border-border flex flex-col overflow-hidden shadow-sm">
-            <CardHeader className="pb-4 border-b border-border/50">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                  <Video className="w-3.5 h-3.5" /> Vídeos ({videoList.length})
-                </CardTitle>
-                {videoList.length > 1 && (
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <GripVertical className="w-3 h-3" /> Arraste para reordenar
-                  </p>
-                )}
-              </div>
-            </CardHeader>
-
-            <div className="p-4 border-b border-border/50 bg-muted/10">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Buscar vídeo..."
-                    className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  />
-                </div>
-                <Button size="sm" variant="secondary" onClick={handleSearch} disabled={searching}>
-                  {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar"}
-                </Button>
-              </div>
-
-              {searchResults.length > 0 && (
-                <div className="mt-2 border border-border rounded-lg overflow-hidden bg-background shadow-lg max-h-[220px] overflow-y-auto z-50">
-                  {searchResults.map(v => (
-                    <button
-                      key={v.id}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 border-b border-border/40 last:border-0 text-left transition-colors"
-                      onClick={() => addVideo(v)}
-                    >
-                      <div className="w-12 h-16 bg-black rounded overflow-hidden shrink-0 border border-border">
-                        <video src={v.mediaUrl} className="w-full h-full object-cover opacity-80" preload="metadata" muted />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">{v.title}</p>
-                        {v.description && <p className="text-[10px] text-muted-foreground truncate">{v.description}</p>}
-                      </div>
-                      <Plus className="w-4 h-4 text-primary shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
-            <div className="flex-1 overflow-y-auto max-h-[480px]">
-              {videoList.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-16 text-center text-muted-foreground">
-                  <Video className="w-8 h-8 opacity-20 mb-3" />
-                  <p className="text-sm">Nenhum vídeo adicionado.</p>
+            <div className="flex flex-col gap-6 items-stretch">
+
+                {/* Section 1: Basic Info */}
+                <div className="w-full">
+                    <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+                        <CardHeader className="pb-4 border-b border-border/50">
+                            <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                <CircleDot className="w-3.5 h-3.5" /> Informações Gerais
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5">
+                            <div className="max-w-md">
+                                <Label className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 block">Nome Interno <span className="text-destructive">*</span></Label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Stories da Home"
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1.5">Este nome é apenas para sua organização interna.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {videoList.map((entry, idx) => (
-                    <div
-                      key={`${entry.videoId}-${idx}`}
-                      draggable
-                      onDragStart={() => handleDragStart(idx)}
-                      onDragEnter={() => handleDragEnter(idx)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={e => e.preventDefault()}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 group cursor-grab active:cursor-grabbing transition-all",
-                        dragOver === idx && dragIdx !== idx ? 'bg-primary/10 border-t-2 border-primary' : 'hover:bg-muted/30'
-                      )}
-                    >
-                      <GripVertical className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground shrink-0" />
-                      <span className="text-xs font-mono text-muted-foreground/50 w-5 shrink-0">{idx + 1}</span>
-                      <div className={cn("w-12 h-16 bg-black rounded border border-border overflow-hidden shrink-0 shadow-sm transition-all", shape === 'round' ? 'rounded-full scale-110' : 'rounded-lg')}>
-                        {entry.video?.mediaUrl && (
-                          <video
-                            src={entry.video.mediaUrl}
-                            poster={entry.video.thumbnailUrl || undefined}
-                            className="w-full h-full object-cover opacity-80"
-                            preload="metadata"
-                            muted
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{entry.video?.title ?? `Vídeo #${entry.videoId}`}</p>
-                        {entry.video?.description && (
-                          <p className="text-xs text-muted-foreground truncate">{entry.video.description}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeVideo(idx)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+
+                {/* Section 2: Bubble Style */}
+                <div className="w-full">
+                    <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+                        <CardHeader className="pb-4 border-b border-border/50">
+                            <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                <Eye className="w-3.5 h-3.5" /> Estilo das Miniaturas
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <Label className="text-xs font-semibold uppercase text-muted-foreground block">Arredondamento das Miniaturas</Label>
+                                            <span className="text-[10px] font-mono font-bold text-primary">{borderRadius}px</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="100" step="1"
+                                            value={borderRadius} onChange={e => setBorderRadius(parseInt(e.target.value))}
+                                            className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="flex justify-between mt-1 px-0.5">
+                                            <span className="text-[9px] text-muted-foreground uppercase font-bold">Quadrado</span>
+                                            <span className="text-[9px] text-muted-foreground uppercase font-bold">Círculo</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 block">Largura</Label>
+                                            <input
+                                                type="text"
+                                                placeholder="80px"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                value={bubbleWidth}
+                                                onChange={e => setBubbleWidth(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 block">Altura</Label>
+                                            <input
+                                                type="text"
+                                                placeholder="80px"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                value={bubbleHeight}
+                                                onChange={e => setBubbleHeight(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
+                                        <div className="space-y-0.5">
+                                            <Label className="text-xs font-semibold uppercase text-muted-foreground">Borda Colorida</Label>
+                                            <p className="text-[10px] text-muted-foreground">Destaque os stories com gradiente</p>
+                                        </div>
+                                        <Switch checked={borderEnabled} onCheckedChange={setBorderEnabled} />
+                                    </div>
+
+                                    {borderEnabled && (
+                                        <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Cor Inicial</Label>
+                                                    <div className="flex gap-2">
+                                                        <input type="color" value={color1} onChange={e => setColor1(e.target.value)} className="w-8 h-8 rounded border p-0.5 cursor-pointer bg-background" />
+                                                        <input type="text" value={color1} onChange={e => setColor1(e.target.value)} className="flex-1 h-8 rounded border px-2 text-[10px] uppercase font-mono bg-background" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Cor Final</Label>
+                                                    <div className="flex gap-2">
+                                                        <input type="color" value={color2} onChange={e => setColor2(e.target.value)} className="w-8 h-8 rounded border p-0.5 cursor-pointer bg-background" />
+                                                        <input type="text" value={color2} onChange={e => setColor2(e.target.value)} className="flex-1 h-8 rounded border px-2 text-[10px] uppercase font-mono bg-background" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground block">Ângulo do Gradiente</Label>
+                                                    <span className="text-[10px] font-mono font-bold text-primary">{angle}°</span>
+                                                </div>
+                                                <input
+                                                    type="range" min="0" max="360" step="1"
+                                                    value={angle} onChange={e => setAngle(parseInt(e.target.value))}
+                                                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
-              )}
+
+                {/* Section 3: Container/Hub Style */}
+                <div className="w-full">
+                    <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+                        <CardHeader className="pb-4 border-b border-border/50">
+                            <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                <Monitor className="w-3.5 h-3.5" /> Configurações do Hub
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <div>
+                                        <Label className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 block">Largura Máxima do Container</Label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ex: 1200px ou 100%"
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            value={maxWidth}
+                                            onChange={e => setMaxWidth(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="p-4 bg-muted/30 rounded-xl border border-border/50 flex items-center justify-between">
+                                        <div className="space-y-0.5">
+                                            <Label className="text-xs font-semibold uppercase text-muted-foreground">Exibir Produtos</Label>
+                                            <p className="text-[10px] text-muted-foreground">Mostra produtos vinculados ao vídeo no player</p>
+                                        </div>
+                                        <Switch checked={showProducts} onCheckedChange={setShowProducts} />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider block">Margens Externas</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Topo</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginTop} onChange={e => setMarginTop(e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Baixo</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginBottom} onChange={e => setMarginBottom(e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Esq.</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginLeft} onChange={e => setMarginLeft(e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Dir.</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginRight} onChange={e => setMarginRight(e.target.value)} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider block">Padding Interno</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Topo</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingTop} onChange={e => setPaddingTop(e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Baixo</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingBottom} onChange={e => setPaddingBottom(e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Esq.</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingLeft} onChange={e => setPaddingLeft(e.target.value)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Dir.</label>
+                                                    <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingRight} onChange={e => setPaddingRight(e.target.value)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Bottom: Video Library (Full width) */}
+                <div className="w-full flex flex-col gap-5">
+                    <Card className="border-border flex flex-col overflow-hidden shadow-sm">
+                        <CardHeader className="pb-4 border-b border-border/50">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                    <Video className="w-3.5 h-3.5" /> Vídeos ({videoList.length})
+                                </CardTitle>
+                                {videoList.length > 1 && (
+                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <GripVertical className="w-3 h-3" /> Arraste para reordenar
+                                    </p>
+                                )}
+                            </div>
+                        </CardHeader>
+
+                        <div className="p-4 border-b border-border/50 bg-muted/10">
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar vídeo..."
+                                        className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                    />
+                                </div>
+                                <Button size="sm" variant="secondary" onClick={handleSearch} disabled={searching}>
+                                    {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar"}
+                                </Button>
+                            </div>
+
+                            {searchResults.length > 0 && (
+                                <div className="mt-2 border border-border rounded-lg overflow-hidden bg-background shadow-lg max-h-[220px] overflow-y-auto z-50">
+                                    {searchResults.map(v => (
+                                        <button
+                                            key={v.id}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 border-b border-border/40 last:border-0 text-left transition-colors"
+                                            onClick={() => addVideo(v)}
+                                        >
+                                            <div className="w-12 h-16 bg-black rounded overflow-hidden shrink-0 border border-border">
+                                                <video src={v.mediaUrl} className="w-full h-full object-cover opacity-80" preload="metadata" muted />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-semibold truncate">{v.title}</p>
+                                                {v.description && <p className="text-[10px] text-muted-foreground truncate">{v.description}</p>}
+                                            </div>
+                                            <Plus className="w-4 h-4 text-primary shrink-0" />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto max-h-[480px]">
+                            {videoList.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center p-16 text-center text-muted-foreground">
+                                    <Video className="w-8 h-8 opacity-20 mb-3" />
+                                    <p className="text-sm">Nenhum vídeo adicionado.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-border">
+                                    {videoList.map((entry, idx) => (
+                                        <div
+                                            key={`${entry.videoId}-${idx}`}
+                                            draggable
+                                            onDragStart={() => handleDragStart(idx)}
+                                            onDragEnter={() => handleDragEnter(idx)}
+                                            onDragEnd={handleDragEnd}
+                                            onDragOver={e => e.preventDefault()}
+                                            className={cn(
+                                                "flex items-center gap-3 px-4 py-3 group cursor-grab active:cursor-grabbing transition-all",
+                                                dragOver === idx && dragIdx !== idx ? 'bg-primary/10 border-t-2 border-primary' : 'hover:bg-muted/30'
+                                            )}
+                                        >
+                                            <GripVertical className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground shrink-0" />
+                                            <span className="text-xs font-mono text-muted-foreground/50 w-5 shrink-0">{idx + 1}</span>
+                                            <div className={cn("w-12 h-16 bg-black rounded border border-border overflow-hidden shrink-0 shadow-sm transition-all", shape === 'round' ? 'rounded-full scale-110' : 'rounded-lg')}>
+                                                {entry.video?.mediaUrl && (
+                                                    <video
+                                                        src={entry.video.mediaUrl}
+                                                        poster={entry.video.thumbnailUrl || undefined}
+                                                        className="w-full h-full object-cover opacity-80"
+                                                        preload="metadata"
+                                                        muted
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{entry.video?.title ?? `Vídeo #${entry.videoId}`}</p>
+                                                {entry.video?.description && (
+                                                    <p className="text-xs text-muted-foreground truncate">{entry.video.description}</p>
+                                                )}
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => removeVideo(idx)}
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
             </div>
-          </Card>
-        </div>
-      </div>
 
-      {/* Preview Modal Overlay */}
-      {previewOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
-          <div className="w-full h-full flex flex-col relative z-50">
-            <LivePreviewSection 
-               id={id} name={name} shape={shape} borderEnabled={borderEnabled} borderGradient={`linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`} showProducts={showProducts} videoList={videoList}
-               maxWidth={maxWidth} marginTop={marginTop} marginRight={marginRight} marginBottom={marginBottom} marginLeft={marginLeft}
-               paddingTop={paddingTop} paddingRight={paddingRight} paddingBottom={paddingBottom} paddingLeft={paddingLeft}
-               onClose={() => setPreviewOpen(false)}
-            />
-          </div>
-        </div>
-      )}
+            {/* Preview Modal Overlay */}
+            {previewOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
+                    <div className="w-full h-full flex flex-col relative z-50">
+                        <LivePreviewSection
+                            id={id} name={name} shape={shape} borderEnabled={borderEnabled} borderGradient={`linear-gradient(${angle}deg, ${color1} 0%, ${color2} 100%)`} showProducts={showProducts} videoList={videoList}
+                            maxWidth={maxWidth} marginTop={marginTop} marginRight={marginRight} marginBottom={marginBottom} marginLeft={marginLeft}
+                            paddingTop={paddingTop} paddingRight={paddingRight} paddingBottom={paddingBottom} paddingLeft={paddingLeft}
+                            bubbleWidth={bubbleWidth} bubbleHeight={bubbleHeight} borderRadius={borderRadius}
+                            onClose={() => setPreviewOpen(false)}
+                        />
+                    </div>
+                </div>
+            )}
 
-      {/* Embed Section — only for existing stories */}
-      {!isNew && (
-        <EmbedSection id={id!} />
-      )}
-    </div>
-  );
+            {/* Embed Section — only for existing stories */}
+            {!isNew && (
+                <EmbedSection id={id!} />
+            )}
+        </div>
+    );
 }
 
-function LivePreviewSection({ 
-    id, name, shape, borderEnabled, borderGradient, showProducts, videoList, 
+function LivePreviewSection({
+    id, name, shape, borderEnabled, borderGradient, showProducts, videoList,
     maxWidth, marginTop, marginRight, marginBottom, marginLeft,
     paddingTop, paddingRight, paddingBottom, paddingLeft,
-    onClose 
-}: { 
-    id: string | undefined, name: string, shape: string, borderEnabled: boolean, borderGradient: string, showProducts: boolean, videoList: StoryVideoEntry[], 
+    bubbleWidth, bubbleHeight, borderRadius,
+    onClose
+}: {
+    id: string | undefined, name: string, shape: string, borderEnabled: boolean, borderGradient: string, showProducts: boolean, videoList: StoryVideoEntry[],
     maxWidth: string, marginTop: string, marginRight: string, marginBottom: string, marginLeft: string,
     paddingTop: string, paddingRight: string, paddingBottom: string, paddingLeft: string,
-    onClose?: () => void 
+    bubbleWidth: string, bubbleHeight: string, borderRadius: number,
+    onClose?: () => void
 }) {
-  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
-  const [zoom, setZoom] = useState(1);
+    const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+    const [zoom, setZoom] = useState(1);
 
-  const previewData = {
-    id: id || "preview", 
-    name, 
-    shape, 
-    borderGradient, 
-    borderEnabled,
-    showProducts,
-    maxWidth,
-    marginTop,
-    marginRight,
-    marginBottom,
-    marginLeft,
-    paddingTop,
-    paddingRight,
-    paddingBottom,
-    paddingLeft,
-    videos: videoList.map(v => ({ 
-      ...v.video, 
-      products: v.video?.productsList || [] 
-    }))
-  };
+    const previewData = {
+        id: id || "preview",
+        name,
+        shape,
+        borderGradient,
+        borderEnabled,
+        showProducts,
+        borderRadius,
+        maxWidth,
+        marginTop,
+        marginRight,
+        marginBottom,
+        marginLeft,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        bubbleWidth,
+        bubbleHeight,
+        videos: videoList.map(v => ({
+            ...v.video,
+            products: v.video?.productsList || []
+        }))
+    };
 
-  const mockScript = `
+    const mockScript = `
     const originalFetch = window.fetch;
     window.fetch = async function(url, options) {
       if (url.includes('/api/public/stories/')) {
@@ -571,7 +628,7 @@ function LivePreviewSection({
     };
   `;
 
-  const srcDoc = `
+    const srcDoc = `
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
@@ -655,134 +712,138 @@ function LivePreviewSection({
       </footer>
       
       <script>${mockScript}</script>
-      <script src="${window.location.origin}/embed/vidshop.js"></script>
+      <script src="${window.location.origin}/embed/vidshop.js?v=${Date.now()}"></script>
     </body>
     </html>
   `;
 
-  let widthClass = "w-full";
-  if (device === "tablet") widthClass = "w-[768px]";
-  if (device === "mobile") widthClass = "w-[375px]";
+    let widthClass = "w-full";
+    let heightStyle = "100%";
+    if (device === "tablet") {
+        widthClass = "w-[768px]";
+        heightStyle = "1024px";
+    } else if (device === "mobile") {
+        widthClass = "w-[375px]";
+        heightStyle = "812px";
+    }
 
-  const baseHeight = device !== 'desktop' ? 700 : 500;
+    return (
+        <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col bg-background shadow-none">
+            <CardHeader className="py-3 px-4 border-b border-border bg-muted/20 flex flex-row items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-muted-foreground" />
+                    <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">Preview em Tempo Real</CardTitle>
+                </div>
 
-  return (
-    <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col bg-background shadow-none">
-      <CardHeader className="py-3 px-4 border-b border-border bg-muted/20 flex flex-row items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Eye className="w-4 h-4 text-muted-foreground" />
-          <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest hidden sm:block">Preview em Tempo Real</CardTitle>
-        </div>
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-1 bg-background border border-border rounded-lg p-1 shadow-sm">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))} title="Diminuir Zoom">
+                        <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <div className="w-12 text-center text-[11px] font-mono font-bold tracking-wider text-primary">
+                        {Math.round(zoom * 100)}%
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.min(2, z + 0.1))} title="Aumentar Zoom">
+                        <ZoomIn className="w-4 h-4" />
+                    </Button>
+                    <div className="w-[1px] h-4 bg-border mx-1" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(1)} title="Redefinir Zoom">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                    </Button>
+                </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1 bg-background border border-border rounded-lg p-1 shadow-sm">
-           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))} title="Diminuir Zoom">
-             <ZoomOut className="w-4 h-4" />
-           </Button>
-           <div className="w-12 text-center text-[11px] font-mono font-bold tracking-wider text-primary">
-             {Math.round(zoom * 100)}%
-           </div>
-           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.min(2, z + 0.1))} title="Aumentar Zoom">
-             <ZoomIn className="w-4 h-4" />
-           </Button>
-           <div className="w-[1px] h-4 bg-border mx-1" />
-           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(1)} title="Redefinir Zoom">
-             <RotateCcw className="w-3.5 h-3.5" />
-           </Button>
-        </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex bg-background border border-border rounded-lg p-1">
+                        <Button variant={device === "desktop" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("desktop"); setZoom(1); }} title="Desktop">
+                            <Monitor className="w-4 h-4" />
+                        </Button>
+                        <Button variant={device === "tablet" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("tablet"); setZoom(0.8); }} title="Tablet">
+                            <Tablet className="w-4 h-4" />
+                        </Button>
+                        <Button variant={device === "mobile" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("mobile"); setZoom(0.8); }} title="Mobile">
+                            <Smartphone className="w-4 h-4" />
+                        </Button>
+                    </div>
+                    {onClose && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full ml-2 text-muted-foreground hover:bg-muted" onClick={onClose}>
+                            <X className="w-5 h-5" />
+                        </Button>
+                    )}
+                </div>
+            </CardHeader>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-background border border-border rounded-lg p-1">
-            <Button variant={device === "desktop" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("desktop"); setZoom(1); }} title="Desktop">
-              <Monitor className="w-4 h-4" />
-            </Button>
-            <Button variant={device === "tablet" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("tablet"); setZoom(0.8); }} title="Tablet">
-              <Tablet className="w-4 h-4" />
-            </Button>
-            <Button variant={device === "mobile" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("mobile"); setZoom(0.8); }} title="Mobile">
-              <Smartphone className="w-4 h-4" />
-            </Button>
-          </div>
-          {onClose && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full ml-2 text-muted-foreground hover:bg-muted" onClick={onClose}>
-              <X className="w-5 h-5" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      
-      <div className="bg-muted/40 p-4 sm:p-8 flex justify-center items-start overflow-y-auto flex-1 overflow-x-hidden">
-        <div 
-           className={cn("bg-background rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(0,0,0,0.1)] overflow-hidden transition-all duration-300 origin-top flex translate-all", widthClass)}
-           style={{ 
-             transform: `scale(${zoom})`, 
-             height: `${baseHeight}px`,
-             width: typeof widthClass === 'string' && widthClass.includes('[') ? undefined : undefined // placeholder to ensure width from class works with scale
-           }}
-        >
-            <iframe 
-              key={JSON.stringify(previewData)}
-              className="w-full h-full border-none bg-transparent"
-              srcDoc={srcDoc}
-              title="VidShop Story Preview"
-              sandbox="allow-scripts allow-same-origin"
-            />
-        </div>
-      </div>
-    </Card>
-  );
+            <div className={cn("bg-muted/40 flex justify-center overflow-y-auto flex-1 overflow-x-hidden", device === "desktop" ? "p-0 items-stretch" : "p-4 sm:p-8 items-start")}>
+                <div
+                    className={cn("bg-background overflow-hidden transition-all duration-300 origin-top flex flex-col", widthClass, device === "desktop" ? "rounded-none w-full" : "rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(0,0,0,0.1)] shrink-0")}
+                    style={{
+                        transform: device === "desktop" ? "none" : `scale(${zoom})`,
+                        height: heightStyle,
+                        minHeight: heightStyle
+                    }}
+                >
+                    <iframe
+                        key={JSON.stringify(previewData)}
+                        className="w-full h-full border-none bg-transparent"
+                        srcDoc={srcDoc}
+                        title="VidShop Story Preview"
+                        sandbox="allow-scripts allow-same-origin"
+                    />
+                </div>
+            </div>
+        </Card>
+    );
 }
 
 function EmbedSection({ id }: { id: string }) {
-  const [copied, setCopied] = useState<"script" | "div" | null>(null);
-  const origin = window.location.origin;
-  const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
-  const divTag = `<div data-vidshop-story="${id}"></div>`;
+    const [copied, setCopied] = useState<"script" | "div" | null>(null);
+    const origin = window.location.origin;
+    const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
+    const divTag = `<div data-vidshop-story="${id}"></div>`;
 
-  const copy = (text: string, key: "script" | "div") => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 2000);
-  };
+    const copy = (text: string, key: "script" | "div") => {
+        navigator.clipboard.writeText(text);
+        setCopied(key);
+        setTimeout(() => setCopied(null), 2000);
+    };
 
-  return (
-    <Card className="border-border rounded-xl">
-      <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center gap-2">
-        <Code2 className="w-4 h-4 text-muted-foreground" />
-        <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Integração — Código de Embed</CardTitle>
-      </CardHeader>
-      <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
-            <p className="text-sm font-semibold">Adicione UMA VEZ no template da loja</p>
-          </div>
-          <div className="relative">
-            <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground whitespace-pre-wrap break-all">{scriptTag}</pre>
-            <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(scriptTag, "script")}>
-              {copied === "script" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-            </Button>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
-            <p className="text-sm font-semibold">Cole onde quiser exibir os Stories</p>
-          </div>
-          <div className="relative">
-            <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">{divTag}</pre>
-            <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(divTag, "div")}>
-              {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-            </Button>
-          </div>
-        </div>
-        <div className="sm:col-span-2 pt-2 border-t border-border mt-2">
-           <p className="text-xs text-muted-foreground flex items-center gap-2">
-             ⚠️ <strong>O script geral deve ser adicionado apenas UMA VEZ na loja.</strong>
-             Se você já tem um Carrossel ou Story ativo, não há necessidade de adicionar o script novamente, basta colocar a div acima.
-           </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
+    return (
+        <Card className="border-border rounded-xl">
+            <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center gap-2">
+                <Code2 className="w-4 h-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Integração — Código de Embed</CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                        <p className="text-sm font-semibold">Adicione UMA VEZ no template da loja</p>
+                    </div>
+                    <div className="relative">
+                        <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground whitespace-pre-wrap break-all">{scriptTag}</pre>
+                        <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(scriptTag, "script")}>
+                            {copied === "script" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                        <p className="text-sm font-semibold">Cole onde quiser exibir os Stories</p>
+                    </div>
+                    <div className="relative">
+                        <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">{divTag}</pre>
+                        <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(divTag, "div")}>
+                            {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className="sm:col-span-2 pt-2 border-t border-border mt-2">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        ⚠️ <strong>O script geral deve ser adicionado apenas UMA VEZ na loja.</strong>
+                        Se você já tem um Carrossel ou Story ativo, não há necessidade de adicionar o script novamente, basta colocar a div acima.
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }

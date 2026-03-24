@@ -1,0 +1,1 @@
+ALTER TABLE "video_stories" ADD COLUMN "border_radius" integer DEFAULT 8 NOT NULL;

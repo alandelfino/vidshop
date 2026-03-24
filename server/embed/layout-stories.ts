@@ -11,7 +11,7 @@ export const layoutStories = `
       var posterAttr = v.thumbnailUrl ? ' poster="' + escAttr(v.thumbnailUrl) + '"' : '';
       
       html += '<div class="vidshop-story-item" data-index="' + i + '">';
-      html += '  <div class="vidshop-story-bubble ' + shapeClass + '" style="' + borderStyle + '">';
+      html += '  <div class="vidshop-story-bubble" style="' + borderStyle + '">';
       html += '    <div class="vidshop-story-inner">';
       html += '      <video src="' + escAttr(v.mediaUrl) + '"' + posterAttr + ' muted playsinline preload="metadata"></video>';
       html += '    </div>';
@@ -42,12 +42,13 @@ export const layoutStories = `
         flex-direction: column;
         align-items: center;
         gap: 6px;
-        width: 76px;
+        width: calc(\${story.bubbleWidth || '80px'} + 4px);
       }
       
       .vidshop-story-bubble {
-        width: 72px;
-        height: 72px;
+        width: \${story.bubbleWidth || '80px'};
+        height: \${story.bubbleHeight || '80px'};
+        border-radius: \${story.borderRadius !== undefined ? story.borderRadius + 'px' : '50%'};
         padding: 3px;
         display: flex;
         align-items: center;
@@ -56,20 +57,12 @@ export const layoutStories = `
       }
       .vidshop-story-item:active .vidshop-story-bubble { transform: scale(0.95); }
       
-      .vidshop-story-shape-round { border-radius: 50%; }
-      .vidshop-story-shape-round .vidshop-story-inner { border-radius: 50%; }
-      
-      .vidshop-story-shape-rect-9-16 { border-radius: 12px; height: 100px; }
-      .vidshop-story-shape-rect-9-16 .vidshop-story-inner { border-radius: 10px; }
-      
-      .vidshop-story-shape-square-9-16 { border-radius: 0; height: 100px; }
-      .vidshop-story-shape-square-9-16 .vidshop-story-inner { border-radius: 0; }
-      
       .vidshop-story-inner {
         width: 100%;
         height: 100%;
         background: #000;
         border: 2px solid #fff;
+        border-radius: \${story.borderRadius !== undefined ? Math.max(0, story.borderRadius - 2) + 'px' : '50%'};
         overflow: hidden;
       }
       

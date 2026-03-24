@@ -1,8 +1,9 @@
 import { apiFetch } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Loader2, Save, Plus, Search, X, Eye, EyeOff, GripVertical, Video, Code2, Copy, Check, Monitor, Tablet, Smartphone, ZoomIn, ZoomOut, RotateCcw
+  ArrowLeft, Loader2, Save, Plus, Search, X, Eye, EyeOff, GripVertical, Video, Code2, Copy, Check, Monitor, Tablet, Smartphone, ZoomIn, ZoomOut, RotateCcw, CircleDot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,8 +39,13 @@ export default function CarouselEditorPage() {
   const [layout, setLayout] = useState("3d-card");
   const [showProducts, setShowProducts] = useState(true);
   
-  // Slider specific settings
-  const [previewTime, setPreviewTime] = useState(3);
+  // Carousel settings
+  const [previewTime, setPreviewTime] = useState(4); // Default to 4
+
+  // Card Styles
+  const [cardBorderWidth, setCardBorderWidth] = useState(0);
+  const [cardBorderColor, setCardBorderColor] = useState("#000000");
+  const [cardBorderRadius, setCardBorderRadius] = useState(12);
 
   // Layout customization
   const [maxWidth, setMaxWidth] = useState("100%");
@@ -83,7 +89,10 @@ export default function CarouselEditorPage() {
         setSubtitleColor(data.carousel.subtitleColor || "#666666");
         setLayout(data.carousel.layout || "3d-card");
         setShowProducts(data.carousel.showProducts ?? true);
-        setPreviewTime(data.carousel.previewTime ?? 3);
+        setPreviewTime(data.carousel.previewTime ?? 4);
+        setCardBorderWidth(data.carousel.cardBorderWidth ?? 0);
+        setCardBorderColor(data.carousel.cardBorderColor || "#000000");
+        setCardBorderRadius(data.carousel.cardBorderRadius ?? 12);
         setMaxWidth(data.carousel.maxWidth || "100%");
         setMarginTop(data.carousel.marginTop || "0px");
         setMarginRight(data.carousel.marginRight || "0px");
@@ -150,7 +159,7 @@ export default function CarouselEditorPage() {
       const token = localStorage.getItem("token");
       const payload = {
         name, title, subtitle, titleColor, subtitleColor, layout, showProducts,
-        previewTime,
+        previewTime, cardBorderWidth, cardBorderColor, cardBorderRadius,
         maxWidth, marginTop, marginRight, marginBottom, marginLeft,
         paddingTop, paddingRight, paddingBottom, paddingLeft,
         videoIds: videoList.map(e => e.videoId)
@@ -161,7 +170,8 @@ export default function CarouselEditorPage() {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ 
-            name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
+            name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime: previewTime === 0 ? 4 : previewTime,
+            cardBorderWidth, cardBorderColor, cardBorderRadius,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
             paddingTop, paddingRight, paddingBottom, paddingLeft
           })
@@ -222,177 +232,74 @@ export default function CarouselEditorPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Info */}
-        <div className="lg:col-span-5 flex flex-col gap-5">
-          <Card className="border-border">
+      <div className="flex flex-col gap-6 items-stretch">
+        
+        {/* Section 1: Basic Info */}
+        <div className="w-full">
+          <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
             <CardHeader className="pb-4 border-b border-border/50">
-              <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Informações</CardTitle>
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                <CircleDot className="w-3.5 h-3.5" /> Informações Gerais
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <div>
-                <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">
-                  Nome Interno <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Lançamentos Junho"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Título Público</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Vídeos em Destaque"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Cor (<span className="font-mono">{titleColor}</span>)</label>
-                  <input
-                    type="color"
-                    className="h-10 w-24 rounded-md border border-input bg-background p-1 cursor-pointer"
-                    value={titleColor}
-                    onChange={e => setTitleColor(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Subtítulo</label>
-                  <textarea
-                    placeholder="Subtítulo curto do carrossel..."
-                    className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                    value={subtitle}
-                    onChange={e => setSubtitle(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Cor (<span className="font-mono">{subtitleColor}</span>)</label>
-                  <input
-                    type="color"
-                    className="h-10 w-24 rounded-md border border-input bg-background p-1 cursor-pointer"
-                    value={subtitleColor}
-                    onChange={e => setSubtitleColor(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Modelo do Carrossel</label>
-                <select
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  value={layout}
-                  onChange={e => setLayout(e.target.value)}
-                >
-                  <option value="3d-card">Cartão 3D</option>
-                  <option value="slider">Slider Simples</option>
-                  <option value="stories" disabled>Stories (Em Breve)</option>
-                </select>
-              </div>
-
-              {/* Show/Hide Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowProducts(!showProducts)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border-2 transition-all ${showProducts ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/20'}`}
-              >
-                <div className="flex items-center gap-3">
-                  {showProducts
-                    ? <Eye className="w-5 h-5 text-primary" />
-                    : <EyeOff className="w-5 h-5 text-muted-foreground" />}
-                  <div className="text-left">
-                    <p className="text-sm font-semibold">{showProducts ? "Mostrar Produtos" : "Ocultar Produtos"}</p>
-                    <p className="text-xs text-muted-foreground">{showProducts ? "Exibe os cards sobre o vídeo" : "Oculta links de compra"}</p>
-                  </div>
-                </div>
-                <div className={`w-11 h-6 rounded-full transition-colors shrink-0 relative ${showProducts ? 'bg-primary' : 'bg-muted'}`}>
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${showProducts ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </div>
-              </button>
-
-              {layout === "slider" && (
-                <div className="space-y-4 pt-4 border-t border-border">
-                  <h3 className="text-xs font-bold uppercase text-muted-foreground">Configurações do Slider</h3>
-
+            <CardContent className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
                   <div>
-                    <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Tempo de Preview (Segundos)</label>
-                    <select
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                      value={previewTime}
-                      onChange={e => setPreviewTime(Number(e.target.value))}
-                    >
-                      {[3, 4, 5, 6, 7, 8].map(num => (
-                        <option key={num} value={num}>{num} Segundos</option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-muted-foreground mt-1">Tempo de reprodução do vídeo antes de dar auto-play no próximo (3 a 8 seg).</p>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">
+                      Nome Interno <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Lançamentos Junho"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Este nome é apenas para sua organização interna.</p>
                   </div>
-                </div>
-              )}
-
-              <div className="space-y-4 pt-4 border-t border-border">
-                <h3 className="text-xs font-bold uppercase text-muted-foreground">Layout e Espaçamento</h3>
-                
-                <div>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Largura Máxima (px, %, rem, vh...)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 1200px ou 100%"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={maxWidth}
-                    onChange={e => setMaxWidth(e.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Margens Externas</p>
-                    <div className="grid grid-cols-2 gap-2">
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginTop} onChange={e => setMarginTop(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginBottom} onChange={e => setMarginBottom(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginLeft} onChange={e => setMarginLeft(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginRight} onChange={e => setMarginRight(e.target.value)} />
-                       </div>
+                  <div className="flex flex-col sm:flex-row gap-4 pt-1">
+                    <div className="flex-1">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Título Público</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Vídeos em Destaque"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Cor (<span className="font-mono">{titleColor}</span>)</label>
+                      <input
+                        type="color"
+                        className="h-10 w-24 rounded-md border border-input bg-background p-1 cursor-pointer"
+                        value={titleColor}
+                        onChange={e => setTitleColor(e.target.value)}
+                      />
                     </div>
                   </div>
+                </div>
 
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider">Preenchimento (Padding)</p>
-                    <div className="grid grid-cols-2 gap-2">
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Topo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingTop} onChange={e => setPaddingTop(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Baixo</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingBottom} onChange={e => setPaddingBottom(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Esquerda</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingLeft} onChange={e => setPaddingLeft(e.target.value)} />
-                       </div>
-                       <div>
-                         <label className="text-[9px] uppercase text-muted-foreground">Direita</label>
-                         <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingRight} onChange={e => setPaddingRight(e.target.value)} />
-                       </div>
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row gap-4 pt-0 sm:pt-6">
+                    <div className="flex-1">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Subtítulo</label>
+                      <textarea
+                        placeholder="Subtítulo curto do carrossel..."
+                        className="flex min-h-[105px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                        value={subtitle}
+                        onChange={e => setSubtitle(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Cor (<span className="font-mono">{subtitleColor}</span>)</label>
+                      <input
+                        type="color"
+                        className="h-10 w-24 rounded-md border border-input bg-background p-1 cursor-pointer"
+                        value={subtitleColor}
+                        onChange={e => setSubtitleColor(e.target.value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -401,13 +308,180 @@ export default function CarouselEditorPage() {
           </Card>
         </div>
 
-        {/* Right: Videos */}
-        <div className="lg:col-span-7 flex flex-col gap-5">
-          <Card className="border-border flex flex-col overflow-hidden">
+        {/* Section 2: Card Styles */}
+        <div className="w-full">
+          <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+            <CardHeader className="pb-4 border-b border-border/50">
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                <Eye className="w-3.5 h-3.5" /> Estilos dos Cards
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block">Arredondamento das Bordas</label>
+                      <span className="text-[10px] font-mono font-bold text-primary">{cardBorderRadius}px</span>
+                    </div>
+                    <input
+                      type="range" min="0" max="100" step="1"
+                      value={cardBorderRadius} onChange={e => setCardBorderRadius(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between mt-1 px-0.5">
+                      <span className="text-[9px] text-muted-foreground uppercase font-bold">Quadrado</span>
+                      <span className="text-[9px] text-muted-foreground uppercase font-bold">Círculo</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block">Espessura da Borda</label>
+                      <span className="text-[10px] font-mono font-bold text-primary">{cardBorderWidth}px</span>
+                    </div>
+                    <input
+                      type="range" min="0" max="20" step="1"
+                      value={cardBorderWidth} onChange={e => setCardBorderWidth(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5 block">Cor da Borda</label>
+                    <div className="flex gap-2">
+                      <input type="color" value={cardBorderColor} onChange={e => setCardBorderColor(e.target.value)} className="w-10 h-10 rounded border p-0.5 cursor-pointer bg-background" />
+                      <input type="text" value={cardBorderColor} onChange={e => setCardBorderColor(e.target.value)} className="flex-1 h-10 rounded border px-3 text-sm uppercase font-mono bg-background" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowProducts(!showProducts)}>
+                    <div className="space-y-0.5 pointer-events-none">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground">Exibir Produtos</label>
+                      <p className="text-[10px] text-muted-foreground">{showProducts ? "Exibe os cards sobre o vídeo" : "Oculta links de compra"}</p>
+                    </div>
+                    <div className={`w-11 h-6 rounded-full transition-colors shrink-0 relative pointer-events-none ${showProducts ? 'bg-primary' : 'bg-muted'}`}>
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${showProducts ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Section 3: Container/Hub Style */}
+        <div className="w-full">
+          <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+            <CardHeader className="pb-4 border-b border-border/50">
+              <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                <Monitor className="w-3.5 h-3.5" /> Configurações do Hub
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Modelo do Carrossel</label>
+                    <select
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      value={layout}
+                      onChange={e => setLayout(e.target.value)}
+                    >
+                      <option value="3d-card">Cartão 3D</option>
+                      <option value="slider">Slider Simples</option>
+                      <option value="stories" disabled>Stories (Em Breve)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Tempo de Preview</label>
+                    <select
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={previewTime}
+                      onChange={e => setPreviewTime(Number(e.target.value))}
+                    >
+                      <option value={4}>4 Segundos</option>
+                      <option value={5}>5 Segundos</option>
+                      <option value={6}>6 Segundos</option>
+                    </select>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Define quanto do vídeo é reproduzido antes de avançar para o próximo.</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Largura Máxima do Container (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 1200px ou 100%"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={maxWidth}
+                      onChange={e => setMaxWidth(e.target.value)}
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Lembre-se que o carrossel respeitará o tamanho da div pai na sua loja.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider block">Margens Externas</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Topo</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginTop} onChange={e => setMarginTop(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Baixo</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginBottom} onChange={e => setMarginBottom(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Esq.</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginLeft} onChange={e => setMarginLeft(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Dir.</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={marginRight} onChange={e => setMarginRight(e.target.value)} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold uppercase text-muted-foreground/70 tracking-wider block">Padding Interno</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Topo</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingTop} onChange={e => setPaddingTop(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Baixo</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingBottom} onChange={e => setPaddingBottom(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Esq.</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingLeft} onChange={e => setPaddingLeft(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase text-muted-foreground block mb-0.5">Dir.</label>
+                          <input type="text" className="h-8 w-full rounded border border-input bg-background px-2 text-[11px]" value={paddingRight} onChange={e => setPaddingRight(e.target.value)} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Section 4: Videos */}
+        <div className="w-full">
+          <Card className="border-border flex flex-col overflow-hidden border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
             <CardHeader className="pb-4 border-b border-border/50">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">
-                  Vídeos ({videoList.length})
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                  <Video className="w-3.5 h-3.5" /> Vídeos do Carrossel ({videoList.length})
                 </CardTitle>
                 {videoList.length > 1 && (
                   <p className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -463,7 +537,7 @@ export default function CarouselEditorPage() {
               {videoList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
                   <Video className="w-8 h-8 opacity-20 mb-3" />
-                  <p className="text-sm">Nenhum vídeo adicionado ainda.</p>
+                  <p className="text-sm border-0">Nenhum vídeo adicionado ainda.</p>
                   <p className="text-xs mt-1">Use a busca acima para encontrar seus vídeos cadastrados.</p>
                 </div>
               ) : (
@@ -522,6 +596,7 @@ export default function CarouselEditorPage() {
             <LivePreviewSection 
               id={id} name={name} title={title} subtitle={subtitle} titleColor={titleColor} subtitleColor={subtitleColor} 
               layout={layout} showProducts={showProducts} previewTime={previewTime} videoList={videoList}
+              cardBorderWidth={cardBorderWidth} cardBorderColor={cardBorderColor} cardBorderRadius={cardBorderRadius}
               maxWidth={maxWidth} marginTop={marginTop} marginRight={marginRight} marginBottom={marginBottom} marginLeft={marginLeft}
               paddingTop={paddingTop} paddingRight={paddingRight} paddingBottom={paddingBottom} paddingLeft={paddingLeft}
               onClose={() => setPreviewOpen(false)}
@@ -540,11 +615,13 @@ export default function CarouselEditorPage() {
 
 function LivePreviewSection({ 
     id, name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoList, 
+    cardBorderWidth, cardBorderColor, cardBorderRadius,
     maxWidth, marginTop, marginRight, marginBottom, marginLeft,
     paddingTop, paddingRight, paddingBottom, paddingLeft,
     onClose 
 }: { 
     id: string | undefined, name: string, title: string, subtitle: string, titleColor: string, subtitleColor: string, layout: string, showProducts: boolean, previewTime: number, videoList: CarouselVideoEntry[], 
+    cardBorderWidth: number, cardBorderColor: string, cardBorderRadius: number,
     maxWidth: string, marginTop: string, marginRight: string, marginBottom: string, marginLeft: string,
     paddingTop: string, paddingRight: string, paddingBottom: string, paddingLeft: string,
     onClose?: () => void 
@@ -555,6 +632,7 @@ function LivePreviewSection({
   const previewData = {
     carousel: { 
         id: id || "preview", name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
+        cardBorderWidth, cardBorderColor, cardBorderRadius,
         maxWidth, marginTop, marginRight, marginBottom, marginLeft,
         paddingTop, paddingRight, paddingBottom, paddingLeft
     },
@@ -723,11 +801,18 @@ function LivePreviewSection({
   `;
 
   let widthClass = "w-full";
-  if (device === "tablet") widthClass = "w-[768px]";
-  if (device === "mobile") widthClass = "w-[375px]";
+  let baseHeight: number | string = "100%";
+  let baseWidth: number | string = "100%";
 
-  const baseHeight = device !== 'desktop' ? 700 : 500;
-  const baseWidth = device === 'tablet' ? 768 : device === 'mobile' ? 375 : '100%';
+  if (device === "tablet") {
+      widthClass = "w-[768px]";
+      baseHeight = 1024;
+      baseWidth = 768;
+  } else if (device === "mobile") {
+      widthClass = "w-[375px]";
+      baseHeight = 812;
+      baseWidth = 375;
+  }
 
   return (
     <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col shadow-none">
@@ -776,26 +861,27 @@ function LivePreviewSection({
       </CardHeader>
       
       {/* Scrollable Container */}
-      <div className="bg-muted p-4 sm:p-8 flex justify-center items-start overflow-y-auto flex-1 h-[600px] sm:h-auto overflow-x-hidden">
+      <div className={cn("bg-muted flex justify-center overflow-y-auto flex-1 h-[600px] sm:h-auto overflow-x-hidden", device === "desktop" ? "p-0 items-stretch" : "p-4 sm:p-8 items-start")}>
         {/* Dynamic Bounding Box matching Scaled size */}
         <div 
-           className="relative flex justify-center transition-all duration-300 ease-out" 
+           className={cn("transition-all duration-300 ease-out flex", device === "desktop" ? "flex-1 w-full" : "relative justify-center")} 
            style={{ 
              width: typeof baseWidth === 'number' ? `calc(${baseWidth}px * ${zoom})` : '100%',
-             height: `calc(${baseHeight}px * ${zoom})` 
+             height: typeof baseHeight === 'number' ? `calc(${baseHeight}px * ${zoom})` : '100%',
+             minHeight: typeof baseHeight === 'string' ? baseHeight : undefined
            }}
         >
           {/* Unscaled Element with Visual Scale Applied */}
           <div 
-             className={`absolute bg-background rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(0,0,0,0.1)] overflow-hidden flex ${widthClass} transition-transform duration-300 ease-out origin-top`}
+             className={cn("bg-background overflow-hidden flex flex-col transition-transform duration-300 ease-out origin-top", widthClass, device === 'desktop' ? 'rounded-none flex-1 w-full' : 'absolute rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(0,0,0,0.1)]')}
              style={{ 
-               transform: `scale(${zoom})`, 
-               height: `${baseHeight}px`
+               transform: device === "desktop" ? "none" : `scale(${zoom})`, 
+               height: typeof baseHeight === 'number' ? `${baseHeight}px` : baseHeight
              }}
           >
               <iframe 
                 key={JSON.stringify(previewData)}
-                className="w-full h-full border-none bg-transparent"
+                className="w-full h-full border-none bg-transparent flex-1"
                 srcDoc={srcDoc}
                 title="VidShop Embed Preview"
                 sandbox="allow-scripts allow-same-origin"

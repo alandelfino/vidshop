@@ -18,7 +18,8 @@ export const layout3DCard =
         }
 
         el.classList.add("fashion-reels-carousel");
-        el.setAttribute("data-autoplay", "6000");
+        var autoplayMs = (data.carousel.previewTime === 0) ? 0 : ((data.carousel.previewTime || 6) * 1000);
+        el.setAttribute("data-autoplay", String(autoplayMs));
 
         var headerHtml = '';
         if (data.carousel.title || data.carousel.subtitle) {
@@ -33,9 +34,15 @@ export const layout3DCard =
         }
 
         var html = headerHtml + '<div class="frc-carousel">';
+        var bw = data.carousel.cardBorderWidth ? data.carousel.cardBorderWidth + 'px' : '0px';
+        var bc = data.carousel.cardBorderColor || '#000000';
+        var br = data.carousel.cardBorderRadius != null ? data.carousel.cardBorderRadius + 'px' : '12px';
+        var slideStyle = 'border-radius: ' + br + '; border: ' + bw + ' solid ' + escAttr(bc) + '; overflow: hidden;';
+        
         videos.forEach(function (v: any) {
-            html += '<div class="frc-slide">';
-            html += '<video muted playsinline loop preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : '') + '">';
+            html += '<div class="frc-slide" style="' + slideStyle + '">';
+            var loopAttr = data.carousel.previewTime === 0 ? '' : 'loop';
+            html += '<video muted playsinline ' + loopAttr + ' preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : '') + '">';
             html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
             html += '</video>';
 
@@ -69,7 +76,9 @@ export const layout3DCard =
 
     var slides = Array.from(root.querySelectorAll(".frc-slide"));
     var videos = slides.map(function (slide: any) { return slide.querySelector("video"); });
-    var autoplayDelay = Number(root.dataset.autoplay || 6000);
+    var autoplayRaw = Number(root.dataset.autoplay || 3);
+    if (autoplayRaw === 0) autoplayRaw = 4;
+    var autoplayDelay = autoplayRaw * 1000;
 
     // Product timeline logic
     videos.forEach(function (video: any, index: number) {
@@ -97,6 +106,7 @@ export const layout3DCard =
     var isPageVisible = !document.hidden;
     var lastCurrent = -1;
     var isManualPause = false;
+    var isViewMode = false;
 
     var touchStartX = 0;
     var touchEndX = 0;
@@ -134,11 +144,30 @@ export const layout3DCard =
             pauseAllVideos();
             return;
         }
-        videos.forEach(function (video, index) {
+        videos.forEach(function (video: any, index: number) {
             if (index === current && isVisible && isPageVisible) {
                 if (lastCurrent !== current) {
                     try { video.currentTime = 0; } catch (e) { }
                 }
+                if (!isViewMode) {
+                    video.muted = true;
+                } else {
+                    video.muted = false;
+                }
+
+                // Sync UI Icons
+                var slide = slides[index] as any;
+                var muteBtn = slide.querySelector('.vidshop-mute-btn');
+                if (muteBtn) {
+                    muteBtn.querySelector('.icon-mute').style.display = video.muted ? 'block' : 'none';
+                    muteBtn.querySelector('.icon-unmute').style.display = video.muted ? 'none' : 'block';
+                }
+                var playBtn = slide.querySelector('.vidshop-play-btn');
+                if (playBtn) {
+                    playBtn.querySelector('.icon-pause').style.display = !video.paused ? 'block' : 'none';
+                    playBtn.querySelector('.icon-play').style.display = !video.paused ? 'none' : 'block';
+                }
+
                 var playPromise = video.play();
                 if (playPromise && typeof playPromise.catch === "function") {
                     playPromise.catch(function () { });
@@ -167,8 +196,10 @@ export const layout3DCard =
     }
 
     function startTimer() {
-        if (timer || !isVisible || !isPageVisible || isManualPause) return;
-        timer = window.setInterval(next, autoplayDelay);
+        if (timer || !isVisible || !isPageVisible || isManualPause || isViewMode) return;
+        if (autoplayDelay > 0) {
+            timer = window.setInterval(next, Math.max(autoplayDelay, 2000));
+        }
     }
 
     function stopTimer() {
@@ -284,9 +315,48 @@ export const layout3DCard =
 
     videos.forEach(function (video: any, index: number) {
         video.muted = true;
+
+        video.addEventListener('click', function (e: any) {
+            e.preventDefault();
+            if (e.target.closest('.frc-product-card') || e.target.closest('.vidshop-controls')) return;
+
+            if (index !== current) {
+                current = index;
+                update();
+                return;
+            }
+
+            if (!isViewMode) {
+                isViewMode = true;
+                video.className = video.className.replace("is-preview", "") + " is-active";
+                slides[index].classList.add("is-view-mode");
+                stopTimer();
+                video.muted = false;
+                video.currentTime = 0;
+                var p = video.play();
+                if (p && p.catch) p.catch(function(){});
+                isManualPause = false;
+            } else {
+                isViewMode = false;
+                slides[index].classList.remove("is-view-mode");
+                video.muted = true;
+                startTimer();
+            }
+        });
+
+        video.addEventListener('ended', function () {
+            if (isViewMode) {
+                if (!isManualPause) next();
+            } else {
+                video.currentTime = 0;
+                var p = video.play();
+                if (p && p.catch) p.catch(function(){});
+            }
+        });
+
         video.addEventListener('play', function () {
             var slide = slides[index] as any;
-            var playBtn = slide.querySelector('.frc-play-btn');
+            var playBtn = slide.querySelector('.vidshop-play-btn');
             if (playBtn) {
                 playBtn.querySelector('.icon-pause').style.display = 'block';
                 playBtn.querySelector('.icon-play').style.display = 'none';
@@ -294,7 +364,7 @@ export const layout3DCard =
         });
         video.addEventListener('pause', function () {
             var slide = slides[index] as any;
-            var playBtn = slide.querySelector('.frc-play-btn');
+            var playBtn = slide.querySelector('.vidshop-play-btn');
             if (playBtn) {
                 playBtn.querySelector('.icon-pause').style.display = 'none';
                 playBtn.querySelector('.icon-play').style.display = 'block';
@@ -302,7 +372,7 @@ export const layout3DCard =
         });
         video.addEventListener('volumechange', function () {
             var slide = slides[index] as any;
-            var muteBtn = slide.querySelector('.frc-mute-btn');
+            var muteBtn = slide.querySelector('.vidshop-mute-btn');
             if (muteBtn) {
                 muteBtn.querySelector('.icon-mute').style.display = video.muted ? 'block' : 'none';
                 muteBtn.querySelector('.icon-unmute').style.display = video.muted ? 'none' : 'block';
@@ -312,13 +382,13 @@ export const layout3DCard =
 
     slides.forEach(function (slide: any, index: number) {
         var controls = document.createElement('div');
-        controls.className = 'frc-controls';
+        controls.className = 'vidshop-controls';
         controls.innerHTML = [
-            '<button class="frc-btn frc-mute-btn" aria-label="Mute/Unmute">',
+            '<button class="vidshop-btn vidshop-mute-btn" aria-label="Mute/Unmute">',
             '    <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>',
             '    <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>',
             '</button>',
-            '<button class="frc-btn frc-play-btn" aria-label="Play/Pause">',
+            '<button class="vidshop-btn vidshop-play-btn" aria-label="Play/Pause">',
             '    <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
             '    <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
             '</button>'
@@ -326,8 +396,8 @@ export const layout3DCard =
         slide.appendChild(controls);
 
         var video = videos[index];
-        var muteBtn = controls.querySelector('.frc-mute-btn') as any;
-        var playBtn = controls.querySelector('.frc-play-btn') as any;
+        var muteBtn = controls.querySelector('.vidshop-mute-btn') as any;
+        var playBtn = controls.querySelector('.vidshop-play-btn') as any;
 
         muteBtn.addEventListener('click', function (e: any) {
             e.stopPropagation(); // prevent triggering the slide click
@@ -350,10 +420,25 @@ export const layout3DCard =
 
         slide.addEventListener("click", function (e: any) {
             if (Number(root.dataset.lastDragDist) > 40) return;
+            if (e.target.closest('.vidshop-controls') || e.target.closest('.frc-product-card')) return;
+
             if (index === current) {
-                // Toggle audio if center slide clicked
-                var setMuted = !video.muted;
-                videos.forEach(function (v: any) { v.muted = setMuted; });
+                // Clicking center slide in preview mode should activate View Mode
+                if (!isViewMode) {
+                    isViewMode = true;
+                    stopTimer();
+                    video.muted = false;
+                    video.currentTime = 0;
+                    video.play();
+                    isManualPause = false;
+                    slides[index].classList.add("is-view-mode");
+                } else {
+                    // Clicking in view mode toggles audio
+                    isViewMode = false;
+                    video.muted = true;
+                    startTimer();
+                    slides[index].classList.remove("is-view-mode");
+                }
             } else {
                 current = index;
                 update();

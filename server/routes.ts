@@ -47,6 +47,37 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     }
 }
 
+// Formatador utilitário para converter strings cruas de preço em moedas localizadas amigáveis.
+// Ex: "321.95 BRL" -> "R$ 321,95"
+export function formatPrice(priceStr: string | null | undefined): string | null {
+    if (!priceStr) return null;
+    const s = priceStr.trim().toUpperCase();
+    
+    const regex = /^([A-Z]{3})?[\s]*([\d\.,]+)[\s]*([A-Z]{3})?$/;
+    const match = s.match(regex);
+    if (match) {
+        const currency = match[1] || match[3];
+        const val = match[2];
+        if (currency === 'BRL') {
+            return `R$ ${val.replace('.', ',')}`;
+        }
+        if (currency === 'USD') {
+            return `$ ${val.replace(',', '.')}`;
+        }
+        if (currency === 'EUR') {
+            return `€ ${val.replace('.', ',')}`;
+        }
+    }
+    
+    if (s.includes('BRL')) {
+        return s.replace('BRL', 'R$').trim().replace('.', ',');
+    }
+    if (s.includes('USD')) {
+        return s.replace('USD', '$').trim().replace(',', '.');
+    }
+    return priceStr;
+}
+
 export function registerRoutes(app: Express) {
     // ── Auth ──────────────────────────────────────────────────────────────────
     app.post("/api/auth/register", async (req: Request, res: Response) => {
@@ -525,7 +556,8 @@ export function registerRoutes(app: Express) {
                     productsByVideo[record.videoId].push({
                         startTime: record.startTime,
                         endTime: record.endTime,
-                        ...record.product
+                        ...record.product,
+                        price: formatPrice(record.product.price)
                     });
                 });
             }
@@ -628,7 +660,8 @@ export function registerRoutes(app: Express) {
                 productsByVideo[record.videoId].push({
                     startTime: record.startTime,
                     endTime: record.endTime,
-                    ...record.product
+                    ...record.product,
+                    price: formatPrice(record.product.price)
                 });
             });
         }
@@ -755,10 +788,11 @@ export function registerRoutes(app: Express) {
 
     app.post("/api/stories", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
-        const { 
+        const {
             name, title, shape, borderGradient, borderEnabled, showProducts,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
-            paddingTop, paddingRight, paddingBottom, paddingLeft
+            paddingTop, paddingRight, paddingBottom, paddingLeft,
+            bubbleWidth, bubbleHeight, borderRadius
         } = req.body;
         if (!name) return res.status(400).json({ error: "Nome da story é obrigatório" });
 
@@ -779,6 +813,8 @@ export function registerRoutes(app: Express) {
             paddingRight: paddingRight || "0px",
             paddingBottom: paddingBottom || "0px",
             paddingLeft: paddingLeft || "0px",
+            bubbleWidth: bubbleWidth || "80px",
+            bubbleHeight: bubbleHeight || "80px",
         }).returning();
 
         res.status(201).json({ story });
@@ -841,10 +877,11 @@ export function registerRoutes(app: Express) {
     app.put("/api/stories/:id", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
         const storyId = parseInt(req.params.id);
-        const { 
+        const {
             name, title, shape, borderGradient, borderEnabled, showProducts, videos,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
-            paddingTop, paddingRight, paddingBottom, paddingLeft
+            paddingTop, paddingRight, paddingBottom, paddingLeft,
+            bubbleWidth, bubbleHeight, borderRadius
         } = req.body;
 
         const [existing] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
@@ -866,6 +903,9 @@ export function registerRoutes(app: Express) {
             paddingRight,
             paddingBottom,
             paddingLeft,
+            bubbleWidth,
+            bubbleHeight,
+            borderRadius: parseInt(borderRadius || "8"),
             updatedAt: new Date(),
         })
         .where(eq(videoStories.id, storyId))
@@ -975,7 +1015,12 @@ export function registerRoutes(app: Express) {
                 .innerJoin(products, eq(videoProducts.productId, products.id))
                 .where(eq(videoProducts.videoId, v.id));
                 
-                return { ...v, products: productsList };
+                const formattedProducts = productsList.map(p => ({
+                    ...p,
+                    price: formatPrice(p.price)
+                }));
+                
+                return { ...v, products: formattedProducts };
             }));
 
             res.json({ ...story, videos });
@@ -1011,7 +1056,8 @@ export function registerRoutes(app: Express) {
                 productsByVideo[record.videoId].push({
                     startTime: record.startTime,
                     endTime: record.endTime,
-                    ...record.product
+                    ...record.product,
+                    price: formatPrice(record.product.price)
                 });
             });
         }
@@ -1043,7 +1089,15 @@ export function registerRoutes(app: Express) {
             .where(eq(videoProducts.videoId, videoId))
             .orderBy(videoProducts.startTime);
 
-        res.json({ video, videoProducts: vp });
+        const formattedVp = vp.map(record => ({
+            ...record,
+            product: {
+                ...record.product,
+                price: formatPrice(record.product.price)
+            }
+        }));
+
+        res.json({ video, videoProducts: formattedVp });
     });
 
     app.post("/api/videos", authMiddleware, async (req: Request, res: Response) => {

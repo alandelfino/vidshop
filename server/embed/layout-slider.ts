@@ -12,11 +12,12 @@ export const layoutSlider =
         }
     }
 
-    var previewTime = data.carousel.previewTime || 3;
+    var previewTime = data.carousel.previewTime ?? 4;
+    var previewMs = previewTime === 0 ? 0 : previewTime * 1000;
 
     var uid = "vslider-" + Math.floor(Math.random() * 1000000);
     el.classList.add("vidshop-slider-carousel", uid);
-    el.setAttribute("data-preview-time", String(previewTime * 1000));
+    el.setAttribute("data-preview-time", String(previewMs));
 
     var headerHtml = '';
     if (data.carousel.title || data.carousel.subtitle) {
@@ -33,11 +34,30 @@ export const layoutSlider =
     var playIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
 
     var html = headerHtml + '<div class="vidshop-slider-track">';
+    var bw = data.carousel.cardBorderWidth ? data.carousel.cardBorderWidth + 'px' : '0px';
+    var bc = data.carousel.cardBorderColor || '#000000';
+    var br = data.carousel.cardBorderRadius != null ? data.carousel.cardBorderRadius + 'px' : '12px';
+    var slideStyle = 'border-radius: ' + br + '; border: ' + bw + ' solid ' + escAttr(bc) + '; overflow: hidden;';
+
     videos.forEach(function(v: any) {
-      html += '<div class="vidshop-slider-slide">';
-      html += '<video loop playsinline preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : '') + '">';
+      html += '<div class="vidshop-slider-slide" style="' + slideStyle + '">';
+      var loopAttr = previewTime === 0 ? '' : 'loop';
+      html += '<video ' + loopAttr + ' playsinline preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : '') + '">';
       html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
       html += '</video>';
+      
+      // Control buttons (unified)
+      html += '<div class="vidshop-controls">';
+      html += '  <button class="vidshop-btn vidshop-mute-btn" aria-label="Mute/Unmute">';
+      html += '    <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+      html += '    <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+      html += '  </button>';
+      html += '  <button class="vidshop-btn vidshop-play-btn" aria-label="Play/Pause">';
+      html += '    <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+      html += '    <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+      html += '  </button>';
+      html += '</div>';
+
       html += '<div class="vidshop-slider-play-overlay">' + playIcon + '</div>';
       
       if (data.carousel.showProducts && v.productsList && v.productsList.length > 0) {
@@ -74,75 +94,165 @@ export const layoutSlider =
       var previewTime = Number(root.dataset.previewTime || 3000);
       
       var isManualPause = false;
+      var isViewMode = false;
       var currentPreview = -1;
       var previewTimer: any = null;
       var observer: any = null;
+      var isVisible = false;
+
+      function updateSlider() {
+          videos.forEach(function (video: any, index: number) {
+              var slide = slides[index] as any;
+              if (index === currentPreview) {
+                  slide.classList.add("is-playing");
+                  if (isViewMode) {
+                      slide.classList.add("is-view-mode");
+                      video.muted = false;
+                  } else {
+                      slide.classList.remove("is-view-mode");
+                      video.muted = true;
+                  }
+
+                  // Sync UI Icons
+                  var muteBtn = slide.querySelector('.vidshop-mute-btn');
+                  if (muteBtn) {
+                      muteBtn.querySelector('.icon-mute').style.display = video.muted ? 'block' : 'none';
+                      muteBtn.querySelector('.icon-unmute').style.display = video.muted ? 'none' : 'block';
+                  }
+                  var playBtn = slide.querySelector('.vidshop-play-btn');
+                  if (playBtn) {
+                      playBtn.querySelector('.icon-pause').style.display = !video.paused ? 'block' : 'none';
+                      playBtn.querySelector('.icon-play').style.display = !video.paused ? 'none' : 'block';
+                  }
+                  
+                  if (video.paused && isVisible && !isManualPause) {
+                      var p = video.play();
+                      if (p && p.catch) p.catch(function () { });
+                  }
+              } else {
+                  video.pause();
+                  slide.classList.remove("is-playing", "is-view-mode");
+              }
+          });
+      }
 
       function playPreview(index: number) {
           if (isManualPause) return;
-          if (currentPreview !== -1 && videos[currentPreview]) {
-             videos[currentPreview].pause();
-             (slides[currentPreview] as any).classList.remove("is-playing");
-          }
           currentPreview = index;
-          var video = videos[currentPreview] as any;
-          var slide = slides[currentPreview] as any;
-          if (!video) return;
-
-          video.muted = true;
-          video.currentTime = 0;
-          var p: any = video.play();
-          if (p && p.catch) p.catch(function(){});
-          slide.classList.add("is-playing");
+          if (!isViewMode) {
+              videos[index].currentTime = 0;
+          }
+          updateSlider();
           
           clearTimeout(previewTimer);
-          previewTimer = setTimeout(function() {
-              var nextIndex = (currentPreview + 1) % videos.length;
-              var nextSlide = slides[nextIndex] as any;
-              
-              // Scroll the track so next slide is visible
-              var slideWidth = nextSlide.offsetWidth + 16; // including gap
-              var maxScroll = track.scrollWidth - track.clientWidth;
-              var targetScroll = nextSlide.offsetLeft - track.offsetLeft;
-              
-              // If we reached the end, loop back
-              if (targetScroll > maxScroll || nextIndex === 0) {
-                  track.scrollTo({ left: 0, behavior: 'smooth' });
+          if (previewTime > 0 && !isViewMode) {
+              previewTimer = setTimeout(function() {
+                  if (!isViewMode && !isManualPause) advanceToNext(index);
+              }, previewTime);
+          }
+      }
+
+      function advanceToNext(fromIndex: number) {
+          if (isManualPause) return;
+          var nextIndex = (fromIndex + 1) % videos.length;
+          var nextSlide = slides[nextIndex] as any;
+          
+          var maxScroll = track.scrollWidth - track.clientWidth;
+          var targetScroll = nextSlide.offsetLeft - track.offsetLeft;
+          
+          if (nextIndex === 0) {
+              track.scrollTo({ left: 0, behavior: 'smooth' });
+          } else {
+              var boundedScroll = Math.min(targetScroll, maxScroll);
+              track.scrollTo({ left: boundedScroll, behavior: 'smooth' });
+          }
+          
+          setTimeout(function() { 
+              if (isViewMode) {
+                   currentPreview = nextIndex;
+                   videos[nextIndex].currentTime = 0;
+                   updateSlider();
               } else {
-                  track.scrollTo({ left: targetScroll, behavior: 'smooth' });
+                   playPreview(nextIndex); 
               }
-              
-              // Wait for scroll animation before playing next
-              setTimeout(function() { playPreview(nextIndex); }, 400); 
-          }, previewTime);
+          }, 400); 
       }
 
       if (window.IntersectionObserver) {
           observer = new IntersectionObserver(function(entries) {
               entries.forEach(function(entry) {
                   if (entry.isIntersecting) {
+                      isVisible = true;
                       if (!isManualPause && currentPreview === -1) {
                           playPreview(0); // start auto-play cycle
+                      } else {
+                          updateSlider();
                       }
                   } else {
+                      isVisible = false;
                       clearTimeout(previewTimer);
-                      if (currentPreview !== -1 && videos[currentPreview]) {
-                          (videos[currentPreview] as any).pause();
-                      }
-                      currentPreview = -1;
+                      videos.forEach(function(v: any) { v.pause(); });
                   }
               });
           }, { threshold: 0.3 });
           observer.observe(root);
       } else {
-          // Fallback if no observer
+          isVisible = true;
           setTimeout(function() { playPreview(0); }, 500);
       }
 
-      videos.forEach(function(video: any, index) {
+      videos.forEach(function(video: any, index: number) {
           var slide = slides[index] as any;
           var productCards = Array.from(slide.querySelectorAll(".frc-product-card"));
           
+          video.addEventListener("ended", function() {
+              if (index === currentPreview && !isManualPause) {
+                  advanceToNext(index);
+              }
+          });
+
+          video.addEventListener('play', function () {
+              var playBtn = slide.querySelector('.vidshop-play-btn');
+              if (playBtn) {
+                  playBtn.querySelector('.icon-pause').style.display = 'block';
+                  playBtn.querySelector('.icon-play').style.display = 'none';
+              }
+          });
+          video.addEventListener('pause', function () {
+              var playBtn = slide.querySelector('.vidshop-play-btn');
+              if (playBtn) {
+                  playBtn.querySelector('.icon-pause').style.display = 'none';
+                  playBtn.querySelector('.icon-play').style.display = 'block';
+              }
+          });
+          video.addEventListener('volumechange', function () {
+              var muteBtn = slide.querySelector('.vidshop-mute-btn');
+              if (muteBtn) {
+                  muteBtn.querySelector('.icon-mute').style.display = video.muted ? 'block' : 'none';
+                  muteBtn.querySelector('.icon-unmute').style.display = video.muted ? 'none' : 'block';
+              }
+          });
+
+          var muteBtn = slide.querySelector('.vidshop-mute-btn');
+          var playBtn = slide.querySelector('.vidshop-play-btn');
+
+          muteBtn?.addEventListener('click', function(e: any) {
+              e.stopPropagation();
+              video.muted = !video.muted;
+          });
+
+          playBtn?.addEventListener('click', function(e: any) {
+              e.stopPropagation();
+              if (video.paused) {
+                  isManualPause = false;
+                  video.play();
+              } else {
+                  isManualPause = true;
+                  video.pause();
+                  clearTimeout(previewTimer);
+              }
+          });
+
           if (productCards.length > 0) {
               video.addEventListener("timeupdate", function() {
                   var ct = video.currentTime;
@@ -159,32 +269,27 @@ export const layoutSlider =
           }
 
           slide.addEventListener("click", function(e: any) {
-              if (e.target.closest('.frc-product-card')) return;
+              if (e.target.closest('.frc-product-card') || e.target.closest('.vidshop-controls')) return;
               
-              isManualPause = true; // User interacted, stop auto-preview strictly
-              clearTimeout(previewTimer);
-              
-              if (video.paused) {
-                  videos.forEach(function(v: any) { if (v !== video) v.pause(); });
-                  slides.forEach(function(s: any) { if (s !== slide) s.classList.remove("is-playing"); });
-                  
-                  video.muted = false;
-                  var p: any = video.play();
-                  if (p && p.catch) p.catch(function(){});
-                  slide.classList.add("is-playing");
+              if (!isViewMode) {
+                  isViewMode = true;
+                  currentPreview = index;
+                  isManualPause = false;
+                  clearTimeout(previewTimer);
+                  video.currentTime = 0;
+                  updateSlider();
               } else {
-                  video.pause();
-                  slide.classList.remove("is-playing");
+                  if (index === currentPreview) {
+                      isViewMode = false;
+                      isManualPause = false;
+                      playPreview(index);
+                  } else {
+                      currentPreview = index;
+                      isManualPause = false;
+                      video.currentTime = 0;
+                      updateSlider();
+                  }
               }
-          });
-          
-          video.addEventListener("ended", function() {
-             video.currentTime = 0;
-             if (isManualPause) {
-                 var p: any = video.play();
-                 if (p && p.catch) p.catch(function(){});
-                 slide.classList.add("is-playing");
-             }
           });
       });
   }   // end initSliderLogic
