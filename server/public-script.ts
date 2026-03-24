@@ -35,7 +35,27 @@ ${layoutStories}
     }
   }
 
+  function injectCarouselSkeleton(el) {
+    el.innerHTML = '<div class="vidshop-skeleton-carousel">' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '</div>';
+  }
+
+  function injectStoriesSkeleton(el) {
+    el.innerHTML = '<div class="vidshop-skeleton-stories">' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '</div>';
+  }
+
   function buildCarousel(el, data) {
+    el.innerHTML = ""; // Clear skeleton
+    el.classList.add("vidshop-fade-in");
     applyLayoutStyles(el, data.carousel);
     var layout = data.carousel.layout || "3d-card";
     if (layout === "3d-card") {
@@ -56,13 +76,19 @@ ${layoutStories}
       var cid = el.getAttribute("data-vidshop-carousel") || el.getAttribute("data-onstore-carousel");
       if (!cid || el.dataset.vidshopLoaded) return;
       el.dataset.vidshopLoaded = "1";
+      
+      injectCarouselSkeleton(el);
+      
       fetch(API_ORIGIN + "/api/public/carousels/" + cid)
         .then(function(r) { return r.json(); })
         .then(function(data) { 
           if (data.error) throw new Error(data.error);
           buildCarousel(el, data); 
         })
-        .catch(function(e) { console.warn("[Vidshop] Erro carrossel #" + cid, e); });
+        .catch(function(e) { 
+          el.innerHTML = ""; // Clear on error
+          console.warn("[Vidshop] Erro carrossel #" + cid, e); 
+        });
     });
 
     // Initialize Stories
@@ -71,14 +97,22 @@ ${layoutStories}
       var sid = el.getAttribute("data-vidshop-story");
       if (!sid || el.dataset.vidshopLoaded) return;
       el.dataset.vidshopLoaded = "1";
+
+      injectStoriesSkeleton(el);
+
       fetch(API_ORIGIN + "/api/public/stories/" + sid)
         .then(function(r) { return r.json(); })
         .then(function(data) { 
           if (data.error) throw new Error(data.error);
+          el.innerHTML = ""; // Clear skeleton
+          el.classList.add("vidshop-fade-in");
           applyLayoutStyles(el, data);
           buildStories(el, data); 
         })
-        .catch(function(e) { console.warn("[Vidshop] Erro story #" + sid, e); });
+        .catch(function(e) { 
+          el.innerHTML = ""; // Clear on error
+          console.warn("[Vidshop] Erro story #" + sid, e); 
+        });
     });
   }
 

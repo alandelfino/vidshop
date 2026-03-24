@@ -66,7 +66,18 @@ export const embedStyles =
             "  .fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { font-size: 11px; margin-bottom: 2px; } " +
             "  .fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { font-size: 13px; } " +
             "  .fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 14px; height: 14px; } " +
-            "}";
+            ".vidshop-shimmer { animation: vidshop-shimmer-ani 1.8s ease-in-out infinite; background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%); background-size: 200% 100%; } " +
+            "@keyframes vidshop-shimmer-ani { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } } " +
+            ".vidshop-skeleton-carousel { width: 100%; padding: 40px 20px; display: flex; gap: 16px; overflow: hidden; justify-content: center; } " +
+            ".vidshop-skeleton-card { flex: 0 0 180px; aspect-ratio: 9/16; border-radius: 16px; background: #eee; } " +
+            ".vidshop-skeleton-stories { width: 100%; padding: 20px; display: flex; gap: 12px; overflow: hidden; justify-content: flex-start; } " +
+            ".vidshop-skeleton-circle { flex: 0 0 64px; height: 64px; border-radius: 50%; background: #eee; } " +
+            ".vidshop-fade-in { animation: vidshop-fade-in-ani 0.5s ease forwards; opacity: 0; } " +
+            "@keyframes vidshop-fade-in-ani { from { opacity: 0; } to { opacity: 1; } } " +
+            "@media (max-width: 600px) { " +
+            "  .vidshop-skeleton-card { flex: 0 0 75%; } " +
+            "  .vidshop-skeleton-circle { flex: 0 0 56px; height: 56px; } " +
+            "} ";
         document.head.appendChild(style);
     }
 
