@@ -40,16 +40,18 @@ ${layoutStories}
       '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
       '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
       '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
       '</div>';
   }
 
   function injectStoriesSkeleton(el) {
+    var item = '<div class="vidshop-skeleton-item">' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-text vidshop-shimmer"></div>' +
+      '</div>';
     el.innerHTML = '<div class="vidshop-skeleton-stories">' +
-      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      item + item + item + item + item + item + item +
       '</div>';
   }
 

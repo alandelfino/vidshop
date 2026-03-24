@@ -68,15 +68,22 @@ export const embedStyles =
             "  .fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 14px; height: 14px; } " +
             ".vidshop-shimmer { animation: vidshop-shimmer-ani 1.8s ease-in-out infinite; background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%); background-size: 200% 100%; } " +
             "@keyframes vidshop-shimmer-ani { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } } " +
-            ".vidshop-skeleton-carousel { width: 100%; padding: 40px 20px; display: flex; gap: 16px; overflow: hidden; justify-content: center; } " +
-            ".vidshop-skeleton-card { flex: 0 0 180px; aspect-ratio: 9/16; border-radius: 16px; background: #eee; } " +
-            ".vidshop-skeleton-stories { width: 100%; padding: 20px; display: flex; gap: 12px; overflow: hidden; justify-content: flex-start; } " +
-            ".vidshop-skeleton-circle { flex: 0 0 64px; height: 64px; border-radius: 50%; background: #eee; } " +
+            ".vidshop-shimmer { animation: vidshop-shimmer-ani 1.8s ease-in-out infinite; background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%); background-size: 200% 100%; } " +
+            "@keyframes vidshop-shimmer-ani { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } } " +
+            ".vidshop-skeleton-carousel { width: 100%; min-height: 400px; padding: 40px 20px; display: flex; gap: 20px; overflow: hidden; justify-content: center; align-items: center; } " +
+            ".vidshop-skeleton-card { flex: 0 0 200px; aspect-ratio: 9/16; border-radius: 20px; background: #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.05); } " +
+            ".vidshop-skeleton-stories { width: 100%; min-height: 120px; padding: 20px; display: flex; gap: 16px; overflow: hidden; justify-content: flex-start; align-items: center; } " +
+            ".vidshop-skeleton-item { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; } " +
+            ".vidshop-skeleton-circle { width: 68px; height: 68px; border-radius: 50%; background: #eee; } " +
+            ".vidshop-skeleton-text { width: 50px; height: 10px; border-radius: 4px; background: #eee; } " +
             ".vidshop-fade-in { animation: vidshop-fade-in-ani 0.5s ease forwards; opacity: 0; } " +
             "@keyframes vidshop-fade-in-ani { from { opacity: 0; } to { opacity: 1; } } " +
             "@media (max-width: 600px) { " +
-            "  .vidshop-skeleton-card { flex: 0 0 75%; } " +
-            "  .vidshop-skeleton-circle { flex: 0 0 56px; height: 56px; } " +
+            "  .vidshop-skeleton-carousel { min-height: 300px; padding: 20px 10px; } " +
+            "  .vidshop-skeleton-card { flex: 0 0 70%; aspect-ratio: 9/16; } " +
+            "  .vidshop-skeleton-stories { padding: 15px; gap: 12px; } " +
+            "  .vidshop-skeleton-circle { width: 60px; height: 60px; } " +
+            "  .vidshop-skeleton-text { width: 40px; } " +
             "} ";
         document.head.appendChild(style);
     }
