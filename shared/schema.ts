@@ -132,8 +132,15 @@ export const videoCarousels = pgTable("video_carousels", {
   name: text("name").notNull(),
   title: text("title"),
   subtitle: text("subtitle"),
-  titleColor: text("title_color").notNull().default("#000000"),
-  subtitleColor: text("subtitle_color").notNull().default("#666666"),
+  titleColor: text("title_color").default("#000000"),
+  subtitleColor: text("subtitle_color").default("#666666"),
+  
+  // Integration & Conditions
+  integrationMode: text("integration_mode").notNull().default("code"), // code, selector
+  selector: text("selector"),
+  insertionMethod: text("insertion_method").default("after"), // before, after, prepend, append
+  conditions: jsonb("conditions").default([]), // Array of { data: string, operator: string, value: string }
+
   layout: text("layout").notNull().default("3d-card"),
   showProducts: boolean("show_products").notNull().default(true),
   previewTime: integer("preview_time").notNull().default(3),
@@ -192,7 +199,14 @@ export const videoStories = pgTable("video_stories", {
   
   // Customization
   shape: text("shape").notNull().default("round"), // round, rect-9-16, square-9-16
-  borderGradient: text("border_gradient").notNull().default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
+  borderGradient: text("border_gradient").default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
+  
+  // Integration & Conditions
+  integrationMode: text("integration_mode").notNull().default("code"), // code, selector
+  selector: text("selector"),
+  insertionMethod: text("insertion_method").default("after"), // before, after, prepend, append
+  conditions: jsonb("conditions").default([]), // Array of { data: string, operator: string, value: string }
+
   borderEnabled: boolean("border_enabled").notNull().default(true),
   showProducts: boolean("show_products").notNull().default(true),
   bubbleWidth: text("bubble_width").notNull().default("80px"),

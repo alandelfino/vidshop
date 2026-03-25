@@ -57,6 +57,27 @@
       "when": 1774357598096,
       "tag": "0007_wise_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774393344315,
+      "tag": "0008_sleepy_gunslinger",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1774394475077,
+      "tag": "0009_unique_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1774396225785,
+      "tag": "0010_silly_iron_patriot",
+      "breakpoints": true
     }
   ]
 }

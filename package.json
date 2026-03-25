@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --bundle --platform=node --outdir=dist/server --format=esm --packages=external",
+    "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first NODE_ENV=development tsx server/index.ts",
+    "build": "vite build && vite build -c vite.config.embed.ts && esbuild server/index.ts --bundle --platform=node --outdir=dist/server --format=esm --packages=external",
+    "build:embed": "vite build -c vite.config.embed.ts",
     "start": "cross-env NODE_ENV=production node dist/server/index.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:mig": "drizzle-kit generate && drizzle-kit migrate",
+    "db:migrate": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "git": "git add . && git commit -m 'dev' && git push origin main"
   },

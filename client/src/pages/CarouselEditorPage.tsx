@@ -38,9 +38,15 @@ export default function CarouselEditorPage() {
   const [subtitleColor, setSubtitleColor] = useState("#666666");
   const [layout, setLayout] = useState("3d-card");
   const [showProducts, setShowProducts] = useState(true);
-  
+
   // Carousel settings
   const [previewTime, setPreviewTime] = useState(4); // Default to 4
+
+  // Integration & Conditions
+  const [integrationMode, setIntegrationMode] = useState("code");
+  const [selector, setSelector] = useState("");
+  const [insertionMethod, setInsertionMethod] = useState("after");
+  const [conditions, setConditions] = useState<any[]>([]);
 
   // Card Styles
   const [cardBorderWidth, setCardBorderWidth] = useState(0);
@@ -102,6 +108,10 @@ export default function CarouselEditorPage() {
         setPaddingRight(data.carousel.paddingRight || "0px");
         setPaddingBottom(data.carousel.paddingBottom || "0px");
         setPaddingLeft(data.carousel.paddingLeft || "0px");
+        setIntegrationMode(data.carousel.integrationMode || "code");
+        setSelector(data.carousel.selector || "");
+        setInsertionMethod(data.carousel.insertionMethod || "after");
+        setConditions(data.carousel.conditions || []);
         setVideoList((data.videos || []).map((v: any) => ({
           videoId: v.videoId,
           video: v.video
@@ -162,6 +172,7 @@ export default function CarouselEditorPage() {
         previewTime, cardBorderWidth, cardBorderColor, cardBorderRadius,
         maxWidth, marginTop, marginRight, marginBottom, marginLeft,
         paddingTop, paddingRight, paddingBottom, paddingLeft,
+        integrationMode, selector, insertionMethod, conditions,
         videoIds: videoList.map(e => e.videoId)
       };
 
@@ -173,7 +184,8 @@ export default function CarouselEditorPage() {
             name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime: previewTime === 0 ? 4 : previewTime,
             cardBorderWidth, cardBorderColor, cardBorderRadius,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
-            paddingTop, paddingRight, paddingBottom, paddingLeft
+            paddingTop, paddingRight, paddingBottom, paddingLeft,
+            integrationMode, selector, insertionMethod, conditions
           })
         });
         if (!createRes.ok) throw new Error("Erro ao criar carrossel");
@@ -605,11 +617,214 @@ export default function CarouselEditorPage() {
         </div>
       )}
 
-      {/* Embed Section — only for existing carousels */}
+      {/* Embed & Integration Section */}
       {!isNew && (
-        <EmbedSection id={id!} />
+        <IntegrationSection 
+          id={id!} 
+          integrationMode={integrationMode} 
+          setIntegrationMode={setIntegrationMode}
+          selector={selector}
+          setSelector={setSelector}
+          insertionMethod={insertionMethod}
+          setInsertionMethod={setInsertionMethod}
+        />
+      )}
+
+      {/* Conditions Section */}
+      {!isNew && (
+        <ConditionsSection 
+          conditions={conditions}
+          setConditions={setConditions}
+        />
       )}
     </div>
+  );
+}
+
+function IntegrationSection({ 
+  id, integrationMode, setIntegrationMode, selector, setSelector, insertionMethod, setInsertionMethod 
+}: { 
+  id: string, integrationMode: string, setIntegrationMode: (v: string) => void,
+  selector: string, setSelector: (v: string) => void,
+  insertionMethod: string, setInsertionMethod: (v: string) => void
+}) {
+  const [copied, setCopied] = useState<"script" | "div" | null>(null);
+  const origin = window.location.origin;
+  const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
+  const divTag = `<div data-vidshop-carousel="${id}"></div>`;
+
+  const copy = (text: string, key: "script" | "div") => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <Card className="border-border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+      <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center gap-2">
+        <Code2 className="w-4 h-4 text-muted-foreground" />
+        <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Integração</CardTitle>
+      </CardHeader>
+      <CardContent className="p-5 flex flex-col gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Modo de Integração</label>
+              <select 
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                value={integrationMode}
+                onChange={e => setIntegrationMode(e.target.value)}
+              >
+                <option value="code">Código (Manual)</option>
+                <option value="selector">Seletor CSS (Automático)</option>
+              </select>
+            </div>
+
+            {integrationMode === "selector" && (
+              <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2">
+                <div className="grid gap-2">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Posição de Inserção</label>
+                  <select 
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={insertionMethod}
+                    onChange={e => setInsertionMethod(e.target.value)}
+                  >
+                    <option value="before">Antes de</option>
+                    <option value="after">Depois de</option>
+                    <option value="prepend">Primeiro item dentro de</option>
+                    <option value="append">Último item dentro de</option>
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Seletor CSS</label>
+                  <input 
+                    type="text"
+                    placeholder="Ex: .product-description ou #main-content"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={selector}
+                    onChange={e => setSelector(e.target.value)}
+                  />
+                  <p className="text-[10px] text-muted-foreground">O carrossel será injetado automaticamente em relação a este elemento.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+              <p className="text-sm font-semibold">Script Geral (Template)</p>
+            </div>
+            <div className="relative">
+              <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground whitespace-pre-wrap break-all">{scriptTag}</pre>
+              <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(scriptTag, "script")}>
+                {copied === "script" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </Button>
+            </div>
+            
+            {integrationMode === "code" && (
+              <div className="space-y-2 pt-2 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                  <p className="text-sm font-semibold">Cole onde quiser exibir</p>
+                </div>
+                <div className="relative">
+                  <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">{divTag}</pre>
+                  <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(divTag, "div")}>
+                    {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ConditionsSection({ conditions, setConditions }: { conditions: any[], setConditions: (v: any[]) => void }) {
+  const addCondition = () => {
+    setConditions([...conditions, { data: "url", operator: "contains", value: "" }]);
+  };
+
+  const removeCondition = (idx: number) => {
+    setConditions(conditions.filter((_, i) => i !== idx));
+  };
+
+  const updateCondition = (idx: number, field: string, val: string) => {
+    const next = [...conditions];
+    next[idx] = { ...next[idx], [field]: val };
+    setConditions(next);
+  };
+
+  return (
+    <Card className="border-border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+      <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CircleDot className="w-3.5 h-3.5 text-muted-foreground" />
+          <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Condições de Exibição</CardTitle>
+        </div>
+        <Button size="sm" variant="outline" onClick={addCondition} className="h-7 text-[10px] uppercase font-bold">
+          <Plus className="w-3 h-3 mr-1" /> Add Condição
+        </Button>
+      </CardHeader>
+      <CardContent className="p-5">
+        {conditions.length === 0 ? (
+          <div className="text-center py-6 border-2 border-dashed border-border rounded-xl">
+            <p className="text-xs text-muted-foreground">O carrossel será exibido em todas as páginas por padrão.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {conditions.map((c, idx) => (
+              <div key={idx} className="flex flex-col sm:flex-row gap-3 items-end bg-muted/20 p-4 rounded-lg border border-border/50 relative group">
+                <div className="flex-1 w-full space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Dados</label>
+                  <select 
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={c.data}
+                    onChange={e => updateCondition(idx, "data", e.target.value)}
+                  >
+                    <option value="url">Se a URL</option>
+                  </select>
+                </div>
+                <div className="flex-1 w-full space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Condição</label>
+                  <select 
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={c.operator}
+                    onChange={e => updateCondition(idx, "operator", e.target.value)}
+                  >
+                    <option value="equals">for igual</option>
+                    <option value="not_equals">não é igual</option>
+                    <option value="contains">contém</option>
+                    <option value="not_contains">não contém</option>
+                  </select>
+                </div>
+                <div className="flex-[2] w-full space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Valor</label>
+                  <input
+                    type="text"
+                    placeholder="Valor ou parte da URL"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={c.value}
+                    onChange={e => updateCondition(idx, "value", e.target.value)}
+                  />
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => removeCondition(idx)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -620,7 +835,7 @@ function LivePreviewSection({
     paddingTop, paddingRight, paddingBottom, paddingLeft,
     onClose 
 }: { 
-    id: string | undefined, name: string, title: string, subtitle: string, titleColor: string, subtitleColor: string, layout: string, showProducts: boolean, previewTime: number, videoList: CarouselVideoEntry[], 
+    id: string | undefined, name: string, title: string, subtitle: string, titleColor: string, subtitleColor: string, layout: string, showProducts: boolean, previewTime: number, videoList: any[], 
     cardBorderWidth: number, cardBorderColor: string, cardBorderRadius: number,
     maxWidth: string, marginTop: string, marginRight: string, marginBottom: string, marginLeft: string,
     paddingTop: string, paddingRight: string, paddingBottom: string, paddingLeft: string,
@@ -636,7 +851,6 @@ function LivePreviewSection({
         maxWidth, marginTop, marginRight, marginBottom, marginLeft,
         paddingTop, paddingRight, paddingBottom, paddingLeft
     },
-    // A API agora retorna a lista de vídeos com a propriedade productsList
     videos: videoList.map(v => ({ ...v.video, productsList: v.video?.productsList || [] }))
   };
 
@@ -713,12 +927,9 @@ function LivePreviewSection({
       </style>
     </head>
     <body class="antialiased text-slate-900">
-      <!-- Top Bar -->
       <div class="bg-black text-white text-[10px] py-1.5 text-center font-bold tracking-widest uppercase">
         Frete Grátis em pedidos acima de R$ 200
       </div>
-
-      <!-- Header -->
       <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex justify-between items-center transition-all">
         <div class="flex items-center gap-8">
           <img src="/src/public/vidshop-logo.png" alt="Vidshop" class="h-7 w-auto object-contain" />
@@ -733,9 +944,7 @@ function LivePreviewSection({
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         </div>
       </header>
-
       <main>
-        <!-- Hero Section -->
         <section class="hero-gradient px-6 py-16 md:py-24 text-center">
           <div class="max-w-3xl mx-auto space-y-6">
             <span class="inline-block px-3 py-1 bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-widest rounded-full">Nova Temporada</span>
@@ -747,8 +956,6 @@ function LivePreviewSection({
             </div>
           </div>
         </section>
-
-        <!-- Dynamic Element (Carousel) -->
         <section class="py-12 px-6">
           <div class="max-w-7xl mx-auto">
             <div class="flex items-end justify-between mb-8">
@@ -758,13 +965,9 @@ function LivePreviewSection({
               </div>
               <a href="#" class="text-sm font-bold border-b-2 border-primary pb-0.5">Ver tudo</a>
             </div>
-            
-            <!-- Carousel Inject Point -->
             <div data-vidshop-carousel="${id || 'preview'}" class="w-full"></div>
           </div>
         </section>
-
-        <!-- Static Product Grid -->
         <section class="py-20 bg-slate-50 px-6">
           <div class="max-w-7xl mx-auto">
             <h2 class="text-2xl font-extrabold tracking-tight mb-12 text-center">Nossos Essenciais</h2>
@@ -785,14 +988,11 @@ function LivePreviewSection({
           </div>
         </section>
       </main>
-
-      <!-- Footer Mock -->
       <footer class="bg-white border-t border-slate-100 py-12 px-6 text-center">
         <div class="max-w-7xl mx-auto">
           <p class="text-slate-400 text-xs font-medium uppercase tracking-[0.2em]">© 2024 VidShop Store • Experiência de Vídeo Shoppable</p>
         </div>
       </footer>
-      
       <script>${mockScript}</script>
       <script>${touchMockScript}</script>
       <script src="${window.location.origin}/embed/vidshop.js"></script>
@@ -817,13 +1017,10 @@ function LivePreviewSection({
   return (
     <Card className="border-0 rounded-none overflow-hidden h-full flex flex-col shadow-none">
       <CardHeader className="py-3 px-4 sm:py-4 sm:px-6 border-b border-border bg-muted/20 flex flex-row items-center justify-between shrink-0 flex-wrap gap-4">
-        
         <div className="flex items-center gap-2">
           <Eye className="w-4 h-4 text-muted-foreground" />
           <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest hidden sm:block">Preview em Tempo Real</CardTitle>
         </div>
-
-        {/* Zoom Controls */}
         <div className="flex items-center gap-1 bg-background border border-border rounded-lg p-1 shadow-sm">
            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => setZoom(z => Math.max(0.25, z - 0.1))} title="Diminuir Zoom">
              <ZoomOut className="w-4 h-4" />
@@ -839,7 +1036,6 @@ function LivePreviewSection({
              <RotateCcw className="w-3.5 h-3.5" />
            </Button>
         </div>
-
         <div className="flex items-center gap-3">
           <div className="flex bg-background border border-border rounded-lg p-1">
             <Button variant={device === "desktop" ? "secondary" : "ghost"} size="icon" className="h-7 w-7 rounded-sm" onClick={() => { setDevice("desktop"); setZoom(1); }} title="Desktop">
@@ -859,10 +1055,7 @@ function LivePreviewSection({
           )}
         </div>
       </CardHeader>
-      
-      {/* Scrollable Container */}
       <div className={cn("bg-muted flex justify-center overflow-y-auto flex-1 h-[600px] sm:h-auto overflow-x-hidden", device === "desktop" ? "p-0 items-stretch" : "p-4 sm:p-8 items-start")}>
-        {/* Dynamic Bounding Box matching Scaled size */}
         <div 
            className={cn("transition-all duration-300 ease-out flex", device === "desktop" ? "flex-1 w-full" : "relative justify-center")} 
            style={{ 
@@ -871,7 +1064,6 @@ function LivePreviewSection({
              minHeight: typeof baseHeight === 'string' ? baseHeight : undefined
            }}
         >
-          {/* Unscaled Element with Visual Scale Applied */}
           <div 
              className={cn("bg-background overflow-hidden flex flex-col transition-transform duration-300 ease-out origin-top", widthClass, device === 'desktop' ? 'rounded-none flex-1 w-full' : 'absolute rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(0,0,0,0.1)]')}
              style={{ 
@@ -889,60 +1081,6 @@ function LivePreviewSection({
           </div>
         </div>
       </div>
-    </Card>
-  );
-}
-
-function EmbedSection({ id }: { id: string }) {
-  const [copied, setCopied] = useState<"script" | "div" | null>(null);
-  const origin = window.location.origin;
-  const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
-  const divTag = `<div data-vidshop-carousel="${id}"></div>`;
-
-  const copy = (text: string, key: "script" | "div") => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 2000);
-  };
-
-  return (
-    <Card className="border-border">
-      <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center gap-2">
-        <Code2 className="w-4 h-4 text-muted-foreground" />
-        <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Integração — Código de Embed</CardTitle>
-      </CardHeader>
-      <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
-            <p className="text-sm font-semibold">Adicione UMA VEZ no template da loja</p>
-          </div>
-          <div className="relative">
-            <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground whitespace-pre-wrap break-all">{scriptTag}</pre>
-            <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(scriptTag, "script")}>
-              {copied === "script" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-            </Button>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
-            <p className="text-sm font-semibold">Cole onde quiser exibir o carrossel</p>
-          </div>
-          <div className="relative">
-            <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">{divTag}</pre>
-            <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(divTag, "div")}>
-              {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-            </Button>
-          </div>
-        </div>
-        <div className="sm:col-span-2 pt-2 border-t border-border mt-2">
-           <p className="text-xs text-muted-foreground flex items-center gap-2">
-             ⚠️ <strong>O script geral deve ser adicionado apenas UMA VEZ na loja.</strong>
-             Se você já tem um Carrossel ou Story ativo, não há necessidade de adicionar o script novamente, basta colocar a div acima.
-           </p>
-        </div>
-      </CardContent>
     </Card>
   );
 }

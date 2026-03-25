@@ -122,12 +122,21 @@ async function extractFramesToR2(videoUrl) {
     });
   });
 }
+var ffmpegPath, ffprobePath;
 var init_ffmpeg = __esm({
   "server/ffmpeg.ts"() {
     "use strict";
     init_upload();
-    ffmpeg.setFfmpegPath(ffmpegInstaller.path || ffmpegInstaller.default?.path);
-    ffmpeg.setFfprobePath(ffprobeInstaller.path || ffprobeInstaller.default?.path);
+    ffmpegPath = ffmpegInstaller.path || ffmpegInstaller.default?.path;
+    ffprobePath = ffprobeInstaller.path || ffprobeInstaller.default?.path;
+    if (process.env.NODE_ENV === "production") {
+      console.log("[ffmpeg] Production: defaulting to system-native binaries.");
+    } else {
+      if (ffmpegPath)
+        ffmpeg.setFfmpegPath(ffmpegPath);
+      if (ffprobePath)
+        ffmpeg.setFfprobePath(ffprobePath);
+    }
   }
 });
 
@@ -173,6 +182,7 @@ async function setupVite(app2, server2) {
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { eq as eq3, desc, ilike, or, sql as sql2, inArray, and } from "drizzle-orm";
+import fs4 from "fs";
 
 // server/db.ts
 import { Pool } from "pg";
@@ -188,9 +198,12 @@ __export(schema_exports, {
   products: () => products,
   shoppableVideos: () => shoppableVideos,
   stores: () => stores,
+  storyVideos: () => storyVideos,
+  storyViewEvents: () => storyViewEvents,
   users: () => users,
   videoCarousels: () => videoCarousels,
   videoProducts: () => videoProducts,
+  videoStories: () => videoStories,
   viewEvents: () => viewEvents
 });
 import { pgTable, serial, text, integer, timestamp, boolean, unique, jsonb } from "drizzle-orm/pg-core";
@@ -305,6 +318,20 @@ var videoCarousels = pgTable("video_carousels", {
   layout: text("layout").notNull().default("3d-card"),
   showProducts: boolean("show_products").notNull().default(true),
   previewTime: integer("preview_time").notNull().default(3),
+  // Card Styles
+  cardBorderWidth: integer("card_border_width").notNull().default(0),
+  cardBorderColor: text("card_border_color").notNull().default("#000000"),
+  cardBorderRadius: integer("card_border_radius").notNull().default(12),
+  // Layout customization
+  maxWidth: text("max_width").notNull().default("100%"),
+  marginTop: text("margin_top").notNull().default("0px"),
+  marginRight: text("margin_right").notNull().default("0px"),
+  marginBottom: text("margin_bottom").notNull().default("0px"),
+  marginLeft: text("margin_left").notNull().default("0px"),
+  paddingTop: text("padding_top").notNull().default("0px"),
+  paddingRight: text("padding_right").notNull().default("0px"),
+  paddingBottom: text("padding_bottom").notNull().default("0px"),
+  paddingLeft: text("padding_left").notNull().default("0px"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -323,6 +350,49 @@ var viewEvents = pgTable("view_events", {
   count: integer("count").notNull().default(0)
 }, (t) => ({
   unq: unique("view_events_store_carousel_date_idx").on(t.storeId, t.carouselId, t.date)
+}));
+var videoStories = pgTable("video_stories", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  title: text("title"),
+  // Customization
+  shape: text("shape").notNull().default("round"),
+  // round, rect-9-16, square-9-16
+  borderGradient: text("border_gradient").notNull().default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
+  borderEnabled: boolean("border_enabled").notNull().default(true),
+  showProducts: boolean("show_products").notNull().default(true),
+  bubbleWidth: text("bubble_width").notNull().default("80px"),
+  bubbleHeight: text("bubble_height").notNull().default("80px"),
+  borderRadius: integer("border_radius").notNull().default(8),
+  // Layout customization
+  maxWidth: text("max_width").notNull().default("100%"),
+  marginTop: text("margin_top").notNull().default("0px"),
+  marginRight: text("margin_right").notNull().default("0px"),
+  marginBottom: text("margin_bottom").notNull().default("0px"),
+  marginLeft: text("margin_left").notNull().default("0px"),
+  paddingTop: text("padding_top").notNull().default("0px"),
+  paddingRight: text("padding_right").notNull().default("0px"),
+  paddingBottom: text("padding_bottom").notNull().default("0px"),
+  paddingLeft: text("padding_left").notNull().default("0px"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+var storyVideos = pgTable("story_videos", {
+  id: serial("id").primaryKey(),
+  storyId: integer("story_id").references(() => videoStories.id, { onDelete: "cascade" }).notNull(),
+  videoId: integer("video_id").references(() => shoppableVideos.id, { onDelete: "cascade" }).notNull(),
+  position: integer("position").notNull().default(0)
+});
+var storyViewEvents = pgTable("story_view_events", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id, { onDelete: "cascade" }).notNull(),
+  storyId: integer("story_id").references(() => videoStories.id, { onDelete: "cascade" }).notNull(),
+  date: text("date").notNull(),
+  // ISO date string: 'YYYY-MM-DD'
+  count: integer("count").notNull().default(0)
+}, (t) => ({
+  unq: unique("story_view_events_store_story_date_idx").on(t.storeId, t.storyId, t.date)
 }));
 
 // server/db.ts
@@ -562,12 +632,13 @@ import { v4 as uuidv43 } from "uuid";
 
 // server/embed/styles.ts
 var embedStyles = function injectStyles() {
-  if (document.getElementById("vidshop-frc-styles"))
+  if (document.getElementById("vidshop-embed-css"))
     return;
-  var style = document.createElement("style");
-  style.id = "vidshop-frc-styles";
-  style.textContent = ".fashion-reels-carousel { width: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 60px 0; padding-top: 0px; contain: layout paint style; background-color: transparent; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; } .fashion-reels-carousel * { box-sizing: border-box; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; } .fashion-reels-carousel .frc-carousel { position: relative; width: 100%; height: 500px; display: flex; align-items: center; justify-content: center; isolation: isolate; perspective: 1200px; } .fashion-reels-carousel .frc-slide { position: absolute; width: auto; height: 100%; aspect-ratio: 9 / 16; border-radius: 24px; overflow: hidden; opacity: 0; transform: translateX(0) scale(.8) rotateY(0deg); transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease, box-shadow 0.6s ease; will-change: transform, opacity; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: #fff; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); } .fashion-reels-carousel .frc-slide video { width: 100%; height: 100%; object-fit: cover; display: block; background: #fff; transition: filter 0.6s ease; filter: brightness(0.6); } .fashion-reels-carousel .frc-slide.is-center { transform: translateX(0) scale(1) rotateY(0deg); opacity: 1; z-index: 5; pointer-events: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); } .fashion-reels-carousel .frc-slide.is-center video { filter: brightness(1); } .fashion-reels-carousel .frc-slide.is-left-1 { transform: translateX(-85%) scale(.85) rotateY(12deg); opacity: .8; z-index: 4; } .fashion-reels-carousel .frc-slide.is-right-1 { transform: translateX(85%) scale(.85) rotateY(-12deg); opacity: .8; z-index: 4; } .fashion-reels-carousel .frc-slide.is-left-2 { transform: translateX(-160%) scale(.7) rotateY(20deg); opacity: .4; z-index: 3; } .fashion-reels-carousel .frc-slide.is-right-2 { transform: translateX(160%) scale(.7) rotateY(-20deg); opacity: .4; z-index: 3; } .fashion-reels-carousel .frc-slide.is-hidden-left { transform: translateX(-220%) scale(.6) rotateY(25deg); opacity: 0; z-index: 1; } .fashion-reels-carousel .frc-slide.is-hidden-right { transform: translateX(220%) scale(.6) rotateY(-25deg); opacity: 0; z-index: 1; } @media (max-width: 900px) { .fashion-reels-carousel .frc-carousel { height: 450px; } } @media (max-width: 600px) {   .fashion-reels-carousel { padding: 50px 0; }   .fashion-reels-carousel .frc-carousel { height: calc(76vw * 16 / 9); max-height: 85vh; min-height: 380px; perspective: 800px; }   .fashion-reels-carousel .frc-slide { width: 76%; max-width: calc(85vh * 9 / 16); height: auto; aspect-ratio: 9 / 16; border-radius: 18px; }   .fashion-reels-carousel .frc-slide.is-left-1 { transform: translateX(-65%) scale(.85) rotateY(20deg); opacity: 0.9; }   .fashion-reels-carousel .frc-slide.is-right-1 { transform: translateX(65%) scale(.85) rotateY(-20deg); opacity: 0.9; }   .fashion-reels-carousel .frc-slide.is-left-2 { transform: translateX(-110%) scale(.7) rotateY(30deg); opacity: 0.5; }   .fashion-reels-carousel .frc-slide.is-right-2 { transform: translateX(110%) scale(.7) rotateY(-30deg); opacity: 0.5; }   .fashion-reels-carousel .frc-slide.is-hidden-left { transform: translateX(-160%) scale(.6) rotateY(35deg); opacity: 0; }   .fashion-reels-carousel .frc-slide.is-hidden-right { transform: translateX(160%) scale(.6) rotateY(-35deg); opacity: 0; } } @media (prefers-reduced-motion: reduce) { .fashion-reels-carousel .frc-slide { transition: none; } } .fashion-reels-carousel .frc-controls { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transition: opacity 0.3s ease; z-index: 10; pointer-events: none; } .fashion-reels-carousel .frc-slide.is-center .frc-controls { opacity: 1; pointer-events: auto; } .fashion-reels-carousel .frc-btn { background: transparent; border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 0.2s, transform 0.2s; } .fashion-reels-carousel .frc-btn:active { transform: scale(0.9); } .fashion-reels-carousel .frc-btn:hover { background: rgba(0, 0, 0, 0.7); } .fashion-reels-carousel .frc-btn svg { width: 20px; height: 20px; } .vidshop-slider-carousel { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 40px 0; font-family: inherit; -webkit-user-select: none; user-select: none; } .vidshop-slider-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 16px 20px; width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; } .vidshop-slider-track::-webkit-scrollbar { display: none; } .vidshop-slider-slide { position: relative; flex: 0 0 calc(16.666% - 13.33px); aspect-ratio: 9/16; border-radius: 16px; overflow: hidden; scroll-snap-align: start; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); isolation: isolate; cursor: pointer; } @media (max-width: 1400px) { .vidshop-slider-slide { flex: 0 0 calc(20% - 12.8px); } } @media (max-width: 1100px) { .vidshop-slider-slide { flex: 0 0 calc(25% - 12px); } } @media (max-width: 900px) { .vidshop-slider-slide { flex: 0 0 calc(40% - 13px); } } @media (max-width: 600px) {   .vidshop-slider-track { padding: 12px 5%; gap: 12px; }   .vidshop-slider-slide { flex: 0 0 82%; scroll-snap-align: center; border-radius: 12px; } } .vidshop-slider-slide video { width: 100%; height: 100%; object-fit: cover; display: block; } .vidshop-slider-play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); z-index: 10; pointer-events: none; opacity: 1; transition: opacity 0.3s; } .vidshop-slider-slide.is-playing .vidshop-slider-play-overlay { opacity: 0; } .vidshop-slider-play-overlay svg { width: 48px; height: 48px; fill: white; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); } .fashion-reels-carousel .frc-product-card, .vidshop-slider-slide .frc-product-card { position: absolute; bottom: 20px; left: 16px; right: 16px; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 12px; color: #fff; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(10px); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.15); background: transparent; } .fashion-reels-carousel .frc-product-card.is-active, .vidshop-slider-slide .frc-product-card.is-active { opacity: 1; pointer-events: auto; transform: translateY(0); } .fashion-reels-carousel .frc-product-img, .vidshop-slider-slide .frc-product-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: #fff; flex-shrink: 0; } .fashion-reels-carousel .frc-product-info, .vidshop-slider-slide .frc-product-info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; } .fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { margin: 0 0 2px 0; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; font-family: sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,0.5); } .fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { margin: 0; font-size: 14px; font-weight: 700; color: #fff; font-family: sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,0.5); } .fashion-reels-carousel .frc-product-btn, .vidshop-slider-slide .frc-product-btn { width: auto; height: auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0; transition: transform 0.2s; color: #fff; padding: 3px; } .fashion-reels-carousel .frc-product-btn:hover, .vidshop-slider-slide .frc-product-btn:hover { transform: scale(1.05); } .fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 16px; height: 16px; stroke-width: 2.5; } @media (max-width: 600px) {   .fashion-reels-carousel .frc-product-card, .vidshop-slider-slide .frc-product-card { bottom: 12px; left: 10px; right: 10px; padding: 8px; gap: 8px; border-radius: 10px; }   .fashion-reels-carousel .frc-product-img, .vidshop-slider-slide .frc-product-img { width: 36px; height: 36px; border-radius: 6px; }   .fashion-reels-carousel .frc-product-title, .vidshop-slider-slide .frc-product-title { font-size: 11px; margin-bottom: 2px; }   .fashion-reels-carousel .frc-product-price, .vidshop-slider-slide .frc-product-price { font-size: 13px; }   .fashion-reels-carousel .frc-product-btn svg, .vidshop-slider-slide .frc-product-btn svg { width: 14px; height: 14px; } }";
-  document.head.appendChild(style);
+  var link = document.createElement("link");
+  link.id = "vidshop-embed-css";
+  link.rel = "stylesheet";
+  link.href = API_ORIGIN + "/embed/vidshop.css";
+  document.head.appendChild(link);
 };
 
 // server/embed/layout-3d-card.ts
@@ -586,7 +657,8 @@ var layout3DCard = function build3DCard(el, data) {
     videos = originalVideos;
   }
   el.classList.add("fashion-reels-carousel");
-  el.setAttribute("data-autoplay", "6000");
+  var autoplayMs = data.carousel.previewTime === 0 ? 0 : (data.carousel.previewTime || 6) * 1e3;
+  el.setAttribute("data-autoplay", String(autoplayMs));
   var headerHtml = "";
   if (data.carousel.title || data.carousel.subtitle) {
     headerHtml += '<div style="text-align: center; margin-bottom: 24px; padding: 0 16px; width: 100%;">';
@@ -599,9 +671,14 @@ var layout3DCard = function build3DCard(el, data) {
     headerHtml += "</div>";
   }
   var html = headerHtml + '<div class="frc-carousel">';
+  var bw = data.carousel.cardBorderWidth ? data.carousel.cardBorderWidth + "px" : "0px";
+  var bc = data.carousel.cardBorderColor || "#000000";
+  var br = data.carousel.cardBorderRadius != null ? data.carousel.cardBorderRadius + "px" : "12px";
+  var slideStyle = "border-radius: " + br + "; border: " + bw + " solid " + escAttr(bc) + "; overflow: hidden;";
   videos.forEach(function(v) {
-    html += '<div class="frc-slide">';
-    html += '<video muted playsinline loop preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : "") + '">';
+    html += '<div class="frc-slide" style="' + slideStyle + '">';
+    var loopAttr = data.carousel.previewTime === 0 ? "" : "loop";
+    html += "<video muted playsinline " + loopAttr + ' preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : "") + '">';
     html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
     html += "</video>";
     if (data.carousel.showProducts && v.productsList && v.productsList.length > 0) {
@@ -626,7 +703,10 @@ var layout3DCard = function build3DCard(el, data) {
     var videos2 = slides.map(function(slide) {
       return slide.querySelector("video");
     });
-    var autoplayDelay = Number(root.dataset.autoplay || 6e3);
+    var autoplayRaw = Number(root.dataset.autoplay || 3);
+    if (autoplayRaw === 0)
+      autoplayRaw = 4;
+    var autoplayDelay = autoplayRaw * 1e3;
     videos2.forEach(function(video, index) {
       var slide = slides[index];
       var productCards = Array.from(slide.querySelectorAll(".frc-product-card"));
@@ -653,6 +733,7 @@ var layout3DCard = function build3DCard(el, data) {
     var isPageVisible = !document.hidden;
     var lastCurrent = -1;
     var isManualPause = false;
+    var isViewMode = false;
     var touchStartX = 0;
     var touchEndX = 0;
     function getOffset(index, active, total) {
@@ -705,6 +786,22 @@ var layout3DCard = function build3DCard(el, data) {
             } catch (e) {
             }
           }
+          if (!isViewMode) {
+            video.muted = true;
+          } else {
+            video.muted = false;
+          }
+          var slide = slides[index];
+          var muteBtn = slide.querySelector(".vidshop-mute-btn");
+          if (muteBtn) {
+            muteBtn.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
+            muteBtn.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
+          }
+          var playBtn = slide.querySelector(".vidshop-play-btn");
+          if (playBtn) {
+            playBtn.querySelector(".icon-pause").style.display = !video.paused ? "block" : "none";
+            playBtn.querySelector(".icon-play").style.display = !video.paused ? "none" : "block";
+          }
           var playPromise = video.play();
           if (playPromise && typeof playPromise.catch === "function") {
             playPromise.catch(function() {
@@ -733,9 +830,11 @@ var layout3DCard = function build3DCard(el, data) {
       update();
     }
     function startTimer() {
-      if (timer || !isVisible || !isPageVisible || isManualPause)
+      if (timer || !isVisible || !isPageVisible || isManualPause || isViewMode)
         return;
-      timer = window.setInterval(next, autoplayDelay);
+      if (autoplayDelay > 0) {
+        timer = window.setInterval(next, Math.max(autoplayDelay, 2e3));
+      }
     }
     function stopTimer() {
       if (!timer)
@@ -847,9 +946,49 @@ var layout3DCard = function build3DCard(el, data) {
     });
     videos2.forEach(function(video, index) {
       video.muted = true;
+      video.addEventListener("click", function(e) {
+        e.preventDefault();
+        if (e.target.closest(".frc-product-card") || e.target.closest(".vidshop-controls"))
+          return;
+        if (index !== current) {
+          current = index;
+          update();
+          return;
+        }
+        if (!isViewMode) {
+          isViewMode = true;
+          video.className = video.className.replace("is-preview", "") + " is-active";
+          slides[index].classList.add("is-view-mode");
+          stopTimer();
+          video.muted = false;
+          video.currentTime = 0;
+          var p = video.play();
+          if (p && p.catch)
+            p.catch(function() {
+            });
+          isManualPause = false;
+        } else {
+          isViewMode = false;
+          slides[index].classList.remove("is-view-mode");
+          video.muted = true;
+          startTimer();
+        }
+      });
+      video.addEventListener("ended", function() {
+        if (isViewMode) {
+          if (!isManualPause)
+            next();
+        } else {
+          video.currentTime = 0;
+          var p = video.play();
+          if (p && p.catch)
+            p.catch(function() {
+            });
+        }
+      });
       video.addEventListener("play", function() {
         var slide = slides[index];
-        var playBtn = slide.querySelector(".frc-play-btn");
+        var playBtn = slide.querySelector(".vidshop-play-btn");
         if (playBtn) {
           playBtn.querySelector(".icon-pause").style.display = "block";
           playBtn.querySelector(".icon-play").style.display = "none";
@@ -857,7 +996,7 @@ var layout3DCard = function build3DCard(el, data) {
       });
       video.addEventListener("pause", function() {
         var slide = slides[index];
-        var playBtn = slide.querySelector(".frc-play-btn");
+        var playBtn = slide.querySelector(".vidshop-play-btn");
         if (playBtn) {
           playBtn.querySelector(".icon-pause").style.display = "none";
           playBtn.querySelector(".icon-play").style.display = "block";
@@ -865,7 +1004,7 @@ var layout3DCard = function build3DCard(el, data) {
       });
       video.addEventListener("volumechange", function() {
         var slide = slides[index];
-        var muteBtn = slide.querySelector(".frc-mute-btn");
+        var muteBtn = slide.querySelector(".vidshop-mute-btn");
         if (muteBtn) {
           muteBtn.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
           muteBtn.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
@@ -874,21 +1013,21 @@ var layout3DCard = function build3DCard(el, data) {
     });
     slides.forEach(function(slide, index) {
       var controls = document.createElement("div");
-      controls.className = "frc-controls";
+      controls.className = "vidshop-controls";
       controls.innerHTML = [
-        '<button class="frc-btn frc-mute-btn" aria-label="Mute/Unmute">',
+        '<button class="vidshop-btn vidshop-mute-btn" aria-label="Mute/Unmute">',
         '    <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>',
         '    <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>',
         "</button>",
-        '<button class="frc-btn frc-play-btn" aria-label="Play/Pause">',
+        '<button class="vidshop-btn vidshop-play-btn" aria-label="Play/Pause">',
         '    <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
         '    <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
         "</button>"
       ].join("");
       slide.appendChild(controls);
       var video = videos2[index];
-      var muteBtn = controls.querySelector(".frc-mute-btn");
-      var playBtn = controls.querySelector(".frc-play-btn");
+      var muteBtn = controls.querySelector(".vidshop-mute-btn");
+      var playBtn = controls.querySelector(".vidshop-play-btn");
       muteBtn.addEventListener("click", function(e) {
         e.stopPropagation();
         var setMuted = !video.muted;
@@ -911,11 +1050,23 @@ var layout3DCard = function build3DCard(el, data) {
       slide.addEventListener("click", function(e) {
         if (Number(root.dataset.lastDragDist) > 40)
           return;
+        if (e.target.closest(".vidshop-controls") || e.target.closest(".frc-product-card"))
+          return;
         if (index === current) {
-          var setMuted = !video.muted;
-          videos2.forEach(function(v) {
-            v.muted = setMuted;
-          });
+          if (!isViewMode) {
+            isViewMode = true;
+            stopTimer();
+            video.muted = false;
+            video.currentTime = 0;
+            video.play();
+            isManualPause = false;
+            slides[index].classList.add("is-view-mode");
+          } else {
+            isViewMode = false;
+            video.muted = true;
+            startTimer();
+            slides[index].classList.remove("is-view-mode");
+          }
         } else {
           current = index;
           update();
@@ -938,10 +1089,11 @@ var layoutSlider = function buildSlider(el, data) {
       videos = videos.concat(original);
     }
   }
-  var previewTime = data.carousel.previewTime || 3;
+  var previewTime = data.carousel.previewTime ?? 4;
+  var previewMs = previewTime === 0 ? 0 : previewTime * 1e3;
   var uid = "vslider-" + Math.floor(Math.random() * 1e6);
   el.classList.add("vidshop-slider-carousel", uid);
-  el.setAttribute("data-preview-time", String(previewTime * 1e3));
+  el.setAttribute("data-preview-time", String(previewMs));
   var headerHtml = "";
   if (data.carousel.title || data.carousel.subtitle) {
     headerHtml += '<div style="text-align: center; margin-bottom: 24px; padding: 0 16px; width: 100%;">';
@@ -955,11 +1107,26 @@ var layoutSlider = function buildSlider(el, data) {
   }
   var playIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   var html = headerHtml + '<div class="vidshop-slider-track">';
+  var bw = data.carousel.cardBorderWidth ? data.carousel.cardBorderWidth + "px" : "0px";
+  var bc = data.carousel.cardBorderColor || "#000000";
+  var br = data.carousel.cardBorderRadius != null ? data.carousel.cardBorderRadius + "px" : "12px";
+  var slideStyle = "border-radius: " + br + "; border: " + bw + " solid " + escAttr(bc) + "; overflow: hidden;";
   videos.forEach(function(v) {
-    html += '<div class="vidshop-slider-slide">';
-    html += '<video loop playsinline preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : "") + '">';
+    html += '<div class="vidshop-slider-slide" style="' + slideStyle + '">';
+    var loopAttr = previewTime === 0 ? "" : "loop";
+    html += "<video " + loopAttr + ' playsinline preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : "") + '">';
     html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
     html += "</video>";
+    html += '<div class="vidshop-controls">';
+    html += '  <button class="vidshop-btn vidshop-mute-btn" aria-label="Mute/Unmute">';
+    html += '    <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+    html += '    <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+    html += "  </button>";
+    html += '  <button class="vidshop-btn vidshop-play-btn" aria-label="Play/Pause">';
+    html += '    <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+    html += '    <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+    html += "  </button>";
+    html += "</div>";
     html += '<div class="vidshop-slider-play-overlay">' + playIcon + "</div>";
     if (data.carousel.showProducts && v.productsList && v.productsList.length > 0) {
       v.productsList.forEach(function(p) {
@@ -986,63 +1153,106 @@ var layoutSlider = function buildSlider(el, data) {
     var track = root.querySelector(".vidshop-slider-track");
     var previewTime2 = Number(root.dataset.previewTime || 3e3);
     var isManualPause = false;
+    var isViewMode = false;
     var currentPreview = -1;
     var previewTimer = null;
     var observer = null;
+    var isVisible = false;
+    function updateSlider() {
+      videos2.forEach(function(video, index) {
+        var slide = slides[index];
+        if (index === currentPreview) {
+          slide.classList.add("is-playing");
+          if (isViewMode) {
+            slide.classList.add("is-view-mode");
+            video.muted = false;
+          } else {
+            slide.classList.remove("is-view-mode");
+            video.muted = true;
+          }
+          var muteBtn = slide.querySelector(".vidshop-mute-btn");
+          if (muteBtn) {
+            muteBtn.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
+            muteBtn.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
+          }
+          var playBtn = slide.querySelector(".vidshop-play-btn");
+          if (playBtn) {
+            playBtn.querySelector(".icon-pause").style.display = !video.paused ? "block" : "none";
+            playBtn.querySelector(".icon-play").style.display = !video.paused ? "none" : "block";
+          }
+          if (video.paused && isVisible && !isManualPause) {
+            var p = video.play();
+            if (p && p.catch)
+              p.catch(function() {
+              });
+          }
+        } else {
+          video.pause();
+          slide.classList.remove("is-playing", "is-view-mode");
+        }
+      });
+    }
     function playPreview(index) {
       if (isManualPause)
         return;
-      if (currentPreview !== -1 && videos2[currentPreview]) {
-        videos2[currentPreview].pause();
-        slides[currentPreview].classList.remove("is-playing");
-      }
       currentPreview = index;
-      var video = videos2[currentPreview];
-      var slide = slides[currentPreview];
-      if (!video)
-        return;
-      video.muted = true;
-      video.currentTime = 0;
-      var p = video.play();
-      if (p && p.catch)
-        p.catch(function() {
-        });
-      slide.classList.add("is-playing");
+      if (!isViewMode) {
+        videos2[index].currentTime = 0;
+      }
+      updateSlider();
       clearTimeout(previewTimer);
-      previewTimer = setTimeout(function() {
-        var nextIndex = (currentPreview + 1) % videos2.length;
-        var nextSlide = slides[nextIndex];
-        var slideWidth = nextSlide.offsetWidth + 16;
-        var maxScroll = track.scrollWidth - track.clientWidth;
-        var targetScroll = nextSlide.offsetLeft - track.offsetLeft;
-        if (targetScroll > maxScroll || nextIndex === 0) {
-          track.scrollTo({ left: 0, behavior: "smooth" });
+      if (previewTime2 > 0 && !isViewMode) {
+        previewTimer = setTimeout(function() {
+          if (!isViewMode && !isManualPause)
+            advanceToNext(index);
+        }, previewTime2);
+      }
+    }
+    function advanceToNext(fromIndex) {
+      if (isManualPause)
+        return;
+      var nextIndex = (fromIndex + 1) % videos2.length;
+      var nextSlide = slides[nextIndex];
+      var maxScroll = track.scrollWidth - track.clientWidth;
+      var targetScroll = nextSlide.offsetLeft - track.offsetLeft;
+      if (nextIndex === 0) {
+        track.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        var boundedScroll = Math.min(targetScroll, maxScroll);
+        track.scrollTo({ left: boundedScroll, behavior: "smooth" });
+      }
+      setTimeout(function() {
+        if (isViewMode) {
+          currentPreview = nextIndex;
+          videos2[nextIndex].currentTime = 0;
+          updateSlider();
         } else {
-          track.scrollTo({ left: targetScroll, behavior: "smooth" });
-        }
-        setTimeout(function() {
           playPreview(nextIndex);
-        }, 400);
-      }, previewTime2);
+        }
+      }, 400);
     }
     if (window.IntersectionObserver) {
       observer = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
           if (entry.isIntersecting) {
+            isVisible = true;
             if (!isManualPause && currentPreview === -1) {
               playPreview(0);
+            } else {
+              updateSlider();
             }
           } else {
+            isVisible = false;
             clearTimeout(previewTimer);
-            if (currentPreview !== -1 && videos2[currentPreview]) {
-              videos2[currentPreview].pause();
-            }
-            currentPreview = -1;
+            videos2.forEach(function(v) {
+              v.pause();
+            });
           }
         });
       }, { threshold: 0.3 });
       observer.observe(root);
     } else {
+      isVisible = true;
       setTimeout(function() {
         playPreview(0);
       }, 500);
@@ -1050,6 +1260,49 @@ var layoutSlider = function buildSlider(el, data) {
     videos2.forEach(function(video, index) {
       var slide = slides[index];
       var productCards = Array.from(slide.querySelectorAll(".frc-product-card"));
+      video.addEventListener("ended", function() {
+        if (index === currentPreview && !isManualPause) {
+          advanceToNext(index);
+        }
+      });
+      video.addEventListener("play", function() {
+        var playBtn2 = slide.querySelector(".vidshop-play-btn");
+        if (playBtn2) {
+          playBtn2.querySelector(".icon-pause").style.display = "block";
+          playBtn2.querySelector(".icon-play").style.display = "none";
+        }
+      });
+      video.addEventListener("pause", function() {
+        var playBtn2 = slide.querySelector(".vidshop-play-btn");
+        if (playBtn2) {
+          playBtn2.querySelector(".icon-pause").style.display = "none";
+          playBtn2.querySelector(".icon-play").style.display = "block";
+        }
+      });
+      video.addEventListener("volumechange", function() {
+        var muteBtn2 = slide.querySelector(".vidshop-mute-btn");
+        if (muteBtn2) {
+          muteBtn2.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
+          muteBtn2.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
+        }
+      });
+      var muteBtn = slide.querySelector(".vidshop-mute-btn");
+      var playBtn = slide.querySelector(".vidshop-play-btn");
+      muteBtn?.addEventListener("click", function(e) {
+        e.stopPropagation();
+        video.muted = !video.muted;
+      });
+      playBtn?.addEventListener("click", function(e) {
+        e.stopPropagation();
+        if (video.paused) {
+          isManualPause = false;
+          video.play();
+        } else {
+          isManualPause = true;
+          video.pause();
+          clearTimeout(previewTimer);
+        }
+      });
       if (productCards.length > 0) {
         video.addEventListener("timeupdate", function() {
           var ct = video.currentTime;
@@ -1067,43 +1320,244 @@ var layoutSlider = function buildSlider(el, data) {
         });
       }
       slide.addEventListener("click", function(e) {
-        if (e.target.closest(".frc-product-card"))
+        if (e.target.closest(".frc-product-card") || e.target.closest(".vidshop-controls"))
           return;
-        isManualPause = true;
-        clearTimeout(previewTimer);
-        if (video.paused) {
-          videos2.forEach(function(v) {
-            if (v !== video)
-              v.pause();
-          });
-          slides.forEach(function(s) {
-            if (s !== slide)
-              s.classList.remove("is-playing");
-          });
-          video.muted = false;
-          var p = video.play();
-          if (p && p.catch)
-            p.catch(function() {
-            });
-          slide.classList.add("is-playing");
+        if (!isViewMode) {
+          isViewMode = true;
+          currentPreview = index;
+          isManualPause = false;
+          clearTimeout(previewTimer);
+          video.currentTime = 0;
+          updateSlider();
         } else {
-          video.pause();
-          slide.classList.remove("is-playing");
-        }
-      });
-      video.addEventListener("ended", function() {
-        video.currentTime = 0;
-        if (isManualPause) {
-          var p = video.play();
-          if (p && p.catch)
-            p.catch(function() {
-            });
-          slide.classList.add("is-playing");
+          if (index === currentPreview) {
+            isViewMode = false;
+            isManualPause = false;
+            playPreview(index);
+          } else {
+            currentPreview = index;
+            isManualPause = false;
+            video.currentTime = 0;
+            updateSlider();
+          }
         }
       });
     });
   }
 };
+
+// server/embed/layout-stories.ts
+var layoutStories = `
+  function buildStories(el, data) {
+    var story = data;
+    var videos = data.videos || [];
+    if (!videos.length) return;
+
+    var bubbleWidth = story.bubbleWidth || '80px';
+    var bubbleHeight = story.bubbleHeight || '80px';
+    var borderRadius = story.borderRadius !== undefined ? story.borderRadius + 'px' : '50%';
+    var innerRadius = story.borderRadius !== undefined ? Math.max(0, story.borderRadius - 2) + 'px' : '50%';
+
+    var containerStyle = [
+      '--vstory-width: ' + bubbleWidth,
+      '--vstory-height: ' + bubbleHeight,
+      '--vstory-radius: ' + borderRadius,
+      '--vstory-inner-radius: ' + innerRadius
+    ].join('; ');
+
+    var html = '<div class="vidshop-stories-container" style="' + containerStyle + '">';
+    videos.forEach(function(v, i) {
+      var shapeClass = 'vidshop-story-shape-' + (story.shape || 'round');
+      var borderStyle = story.borderEnabled ? 'background: ' + story.borderGradient : '';
+      var posterAttr = v.thumbnailUrl ? ' poster="' + escAttr(v.thumbnailUrl) + '"' : '';
+      
+      html += '<div class="vidshop-story-item" data-index="' + i + '">';
+      html += '  <div class="vidshop-story-bubble" style="' + borderStyle + '">';
+      html += '    <div class="vidshop-story-inner">';
+      html += '      <video src="' + escAttr(v.mediaUrl) + '"' + posterAttr + ' muted playsinline preload="metadata"></video>';
+      html += '    </div>';
+      html += '  </div>';
+      html += '  <div class="vidshop-story-label">' + escAttr(v.title) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    el.innerHTML = html;
+
+    // Fullscreen Player Implementation
+    var activeIdx = 0;
+    var modal = null;
+
+    el.querySelectorAll('.vidshop-story-item').forEach(function(item) {
+      item.onclick = function() {
+        activeIdx = parseInt(this.getAttribute('data-index'));
+        openPlayer();
+      };
+    });
+
+    function openPlayer() {
+      if (modal) return;
+      
+      modal = document.createElement('div');
+      modal.className = 'vidshop-story-player-overlay';
+      modal.innerHTML = \`
+        <div class="vidshop-story-player-header">
+           <div class="vidshop-story-progress-container"></div>
+           <div class="vidshop-story-user">
+              \${videos[activeIdx].thumbnailUrl ? '<img src="' + videos[activeIdx].thumbnailUrl + '" class="vidshop-story-user-thumb">' : '<div class="vidshop-story-user-thumb" style="background:#333"></div>'}
+              <span class="vidshop-story-user-name">\${videos[activeIdx].title}</span>
+           </div>
+           <button class="vidshop-story-close">&times;</button>
+        </div>
+        
+        <div class="vidshop-story-player-wrapper">
+          <div class="vidshop-story-player-content">
+             <video id="vidshop-story-video" src="\${videos[activeIdx].mediaUrl}" playsinline autoplay></video>
+             <div class="vidshop-story-nav vidshop-story-nav-prev"></div>
+             <div class="vidshop-story-nav vidshop-story-nav-next"></div>
+             <div class="vidshop-story-products-container"></div>
+          </div>
+        </div>
+      \`;
+      
+      document.body.appendChild(modal);
+      document.body.style.overflow = 'hidden';
+
+      var progressContainer = modal.querySelector('.vidshop-story-progress-container');
+      for (var i = 0; i < videos.length; i++) {
+        var bg = document.createElement('div');
+        bg.className = 'vidshop-story-progress-bg';
+        bg.innerHTML = '<div class="vidshop-story-progress-fill"></div>';
+        progressContainer.appendChild(bg);
+      }
+
+      var video = modal.querySelector('#vidshop-story-video');
+      var progressFills = modal.querySelectorAll('.vidshop-story-progress-fill');
+      var productsContainer = modal.querySelector('.vidshop-story-products-container');
+
+      // Add close logic
+      modal.querySelector('.vidshop-story-close').onclick = closePlayer;
+
+      // Nav logic
+      modal.querySelector('.vidshop-story-nav-prev').onclick = function() {
+        if (activeIdx > 0) {
+          activeIdx--;
+          updatePlayer();
+        } else {
+          closePlayer();
+        }
+      };
+      
+      modal.querySelector('.vidshop-story-nav-next').onclick = function() {
+        if (activeIdx < videos.length - 1) {
+          activeIdx++;
+          updatePlayer();
+        } else {
+          closePlayer();
+        }
+      };
+
+      video.onended = function() {
+        if (activeIdx < videos.length - 1) {
+           activeIdx++;
+           updatePlayer();
+        } else {
+           closePlayer();
+        }
+      };
+
+      var animationId = null;
+      function startProgressLoop() {
+        if (animationId) cancelAnimationFrame(animationId);
+        function loop() {
+           if (!video.paused && video.duration) {
+             var p = (video.currentTime / video.duration) * 100;
+             if (progressFills[activeIdx]) progressFills[activeIdx].style.width = p + '%';
+           }
+           animationId = requestAnimationFrame(loop);
+        }
+        animationId = requestAnimationFrame(loop);
+      }
+
+      video.onplay = startProgressLoop;
+      video.onpause = function() {
+        if (animationId) cancelAnimationFrame(animationId);
+      };
+
+      video.ontimeupdate = function() {
+         if (story.showProducts !== false) {
+           renderProducts(video.currentTime);
+         } else {
+           productsContainer.innerHTML = '';
+         }
+      };
+
+      function updatePlayer() {
+        var v = videos[activeIdx];
+        video.src = v.mediaUrl;
+        video.play();
+        var userThumb = modal.querySelector('.vidshop-story-user-thumb');
+        if (userThumb) {
+          if (v.thumbnailUrl) {
+            userThumb.src = v.thumbnailUrl;
+            userThumb.style.display = 'block';
+          } else {
+            userThumb.style.display = 'none';
+          }
+        }
+        modal.querySelector('.vidshop-story-user-name').innerText = v.title;
+        progressFills.forEach(function(fill, i) {
+          if (i < activeIdx) fill.style.width = '100%';
+          else fill.style.width = '0%';
+        });
+        productsContainer.innerHTML = '';
+        lastActiveIds = "";
+        startProgressLoop();
+      }
+
+      var lastActiveIds = "";
+      function renderProducts(time) {
+        var products = videos[activeIdx].products || [];
+        var activeOnes = products.filter(function(p) {
+          return time >= (p.startTime || 0) && time <= (p.endTime || 9999);
+        });
+
+        var currentIds = activeOnes.map(function(p){ return p.id; }).join(',');
+        if (currentIds === lastActiveIds) return;
+        lastActiveIds = currentIds;
+
+        if (activeOnes.length === 0) {
+          productsContainer.innerHTML = '';
+          return;
+        }
+
+        var html = '';
+        activeOnes.forEach(function(p) {
+          var imgHtml = p.imageLink ? '<img class="vidshop-story-product-img" src="' + p.imageLink + '">' : '<div class="vidshop-story-product-img" style="background:#333"></div>';
+          var cartIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>';
+          
+          html += '<a href="' + p.link + '" target="_blank" class="vidshop-story-product-card">';
+          html += imgHtml;
+          html += '  <div class="vidshop-story-product-info">';
+          html += '    <div class="vidshop-story-product-title">' + p.title + '</div>';
+          html += '    <div class="vidshop-story-product-price">' + (p.price || '') + '</div>';
+          html += '  </div>';
+          html += '  <div class="vidshop-story-product-btn">' + cartIcon + '</div>';
+          html += '</a>';
+        });
+        productsContainer.innerHTML = html;
+      }
+
+      function closePlayer() {
+        if (modal) {
+          modal.remove();
+          modal = null;
+          document.body.style.overflow = '';
+        }
+      }
+    }
+  }
+`;
 
 // server/public-script.ts
 var publicScript = `
@@ -1119,7 +1573,49 @@ ${layout3DCard}
 
 ${layoutSlider}
 
+${layoutStories}
+
+  function applyLayoutStyles(el, item) {
+    if (!item) return;
+    if (item.maxWidth) el.style.maxWidth = item.maxWidth;
+    if (item.marginTop) el.style.marginTop = item.marginTop;
+    if (item.marginRight) el.style.marginRight = item.marginRight;
+    if (item.marginBottom) el.style.marginBottom = item.marginBottom;
+    if (item.marginLeft) el.style.marginLeft = item.marginLeft;
+    if (item.paddingTop) el.style.paddingTop = item.paddingTop;
+    if (item.paddingRight) el.style.paddingRight = item.paddingRight;
+    if (item.paddingBottom) el.style.paddingBottom = item.paddingBottom;
+    if (item.paddingLeft) el.style.paddingLeft = item.paddingLeft;
+    if (item.maxWidth && item.maxWidth !== "100%" && (!item.marginLeft || item.marginLeft === "0px") && (!item.marginRight || item.marginRight === "0px")) {
+      el.style.marginLeft = "auto";
+      el.style.marginRight = "auto";
+    }
+  }
+
+  function injectCarouselSkeleton(el) {
+    el.innerHTML = '<div class="vidshop-skeleton-carousel">' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
+      '</div>';
+  }
+
+  function injectStoriesSkeleton(el) {
+    var item = '<div class="vidshop-skeleton-item">' +
+      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
+      '<div class="vidshop-skeleton-text vidshop-shimmer"></div>' +
+      '</div>';
+    el.innerHTML = '<div class="vidshop-skeleton-stories">' +
+      item + item + item + item + item + item + item +
+      '</div>';
+  }
+
   function buildCarousel(el, data) {
+    el.innerHTML = ""; // Clear skeleton
+    el.classList.add("vidshop-fade-in");
+    applyLayoutStyles(el, data.carousel);
     var layout = data.carousel.layout || "3d-card";
     if (layout === "3d-card") {
       build3DCard(el, data);
@@ -1132,15 +1628,50 @@ ${layoutSlider}
 
   function init() {
     injectStyles();
-    var els = document.querySelectorAll("[data-vidshop-carousel], [data-onstore-carousel]");
-    els.forEach(function(el) {
+    
+    // Initialize Carousels
+    var elsCarousels = document.querySelectorAll("[data-vidshop-carousel], [data-onstore-carousel]");
+    elsCarousels.forEach(function(el) {
       var cid = el.getAttribute("data-vidshop-carousel") || el.getAttribute("data-onstore-carousel");
       if (!cid || el.dataset.vidshopLoaded) return;
       el.dataset.vidshopLoaded = "1";
+      
+      injectCarouselSkeleton(el);
+      
       fetch(API_ORIGIN + "/api/public/carousels/" + cid)
         .then(function(r) { return r.json(); })
-        .then(function(data) { buildCarousel(el, data); })
-        .catch(function(e) { console.warn("[Vidshop] Erro carrossel #" + cid, e); });
+        .then(function(data) { 
+          if (data.error) throw new Error(data.error);
+          buildCarousel(el, data); 
+        })
+        .catch(function(e) { 
+          el.innerHTML = ""; // Clear on error
+          console.warn("[Vidshop] Erro carrossel #" + cid, e); 
+        });
+    });
+
+    // Initialize Stories
+    var elsStories = document.querySelectorAll("[data-vidshop-story]");
+    elsStories.forEach(function(el) {
+      var sid = el.getAttribute("data-vidshop-story");
+      if (!sid || el.dataset.vidshopLoaded) return;
+      el.dataset.vidshopLoaded = "1";
+
+      injectStoriesSkeleton(el);
+
+      fetch(API_ORIGIN + "/api/public/stories/" + sid)
+        .then(function(r) { return r.json(); })
+        .then(function(data) { 
+          if (data.error) throw new Error(data.error);
+          el.innerHTML = ""; // Clear skeleton
+          el.classList.add("vidshop-fade-in");
+          applyLayoutStyles(el, data);
+          buildStories(el, data); 
+        })
+        .catch(function(e) { 
+          el.innerHTML = ""; // Clear on error
+          console.warn("[Vidshop] Erro story #" + sid, e); 
+        });
     });
   }
 
@@ -1246,6 +1777,7 @@ setInterval(() => {
 }, 5 * 6e4).unref();
 
 // server/routes.ts
+import path5 from "path";
 var JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 var xmlUpload = multer2({
   storage: multer2.diskStorage({
@@ -1269,6 +1801,33 @@ function authMiddleware(req, res, next) {
   } catch {
     res.status(401).json({ error: "Token inv\xE1lido ou expirado" });
   }
+}
+function formatPrice(priceStr) {
+  if (!priceStr)
+    return null;
+  const s = priceStr.trim().toUpperCase();
+  const regex = /^([A-Z]{3})?[\s]*([\d\.,]+)[\s]*([A-Z]{3})?$/;
+  const match = s.match(regex);
+  if (match) {
+    const currency = match[1] || match[3];
+    const val = match[2];
+    if (currency === "BRL") {
+      return `R$ ${val.replace(".", ",")}`;
+    }
+    if (currency === "USD") {
+      return `$ ${val.replace(",", ".")}`;
+    }
+    if (currency === "EUR") {
+      return `\u20AC ${val.replace(".", ",")}`;
+    }
+  }
+  if (s.includes("BRL")) {
+    return s.replace("BRL", "R$").trim().replace(".", ",");
+  }
+  if (s.includes("USD")) {
+    return s.replace("USD", "$").trim().replace(",", ".");
+  }
+  return priceStr;
 }
 function registerRoutes(app2) {
   app2.post("/api/auth/register", async (req, res) => {
@@ -1372,11 +1931,18 @@ function registerRoutes(app2) {
   });
   app2.post("/api/stores", authMiddleware, async (req, res) => {
     const payload = req.user;
-    const { name, allowedDomain } = req.body;
+    const { name, allowedDomain, plan } = req.body;
     if (!name || !allowedDomain)
       return res.status(400).json({ error: "Nome da loja e dom\xEDnio s\xE3o obrigat\xF3rios" });
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1e3);
-    const [store] = await db.insert(stores).values({ name, allowedDomain, plan: "free", trialEndsAt, ownerId: payload.userId }).returning();
+    const selectedPlan = plan && PLANS[plan] ? plan : "pro";
+    const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1e3);
+    const [store] = await db.insert(stores).values({
+      name,
+      allowedDomain,
+      plan: selectedPlan,
+      trialEndsAt,
+      ownerId: payload.userId
+    }).returning();
     res.status(201).json({ store });
   });
   app2.put("/api/stores/:id", authMiddleware, async (req, res) => {
@@ -1401,8 +1967,20 @@ function registerRoutes(app2) {
     "/api/media/upload",
     authMiddleware,
     (req, res, next) => {
+      const R2_ACCOUNT_ID2 = process.env.CLOUDFLARE_ACCOUNT_ID;
+      const R2_BUCKET2 = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+      console.log("[upload] Starting upload attempt...");
+      console.log("[upload] Environment check:", {
+        hasAccountId: !!R2_ACCOUNT_ID2,
+        hasBucket: !!R2_BUCKET2,
+        hasAccessKey: !!process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+        hasSecretKey: !!process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      });
       upload.single("file")(req, res, (err) => {
         if (err) {
+          console.error("CRITICAL UPLOAD ERROR:", err);
+          console.log("Error Message:", err.message);
+          console.log("Error Stack:", err.stack);
           res.status(400).json({ error: err.message });
           return;
         }
@@ -1571,12 +2149,13 @@ function registerRoutes(app2) {
             }
           }
           const planId = store.plan;
-          const isTrialActive = store.plan === "free" && store.trialEndsAt && store.trialEndsAt > /* @__PURE__ */ new Date();
-          const isTrialExpired = store.plan === "free" && (!store.trialEndsAt || store.trialEndsAt <= /* @__PURE__ */ new Date());
-          if (isTrialExpired) {
-            return res.status(403).json({ error: "O trial gratuito desta loja expirou. O conte\xFAdo est\xE1 bloqueado at\xE9 a ativa\xE7\xE3o de um plano." });
+          const isTrialActive = store.trialEndsAt && store.trialEndsAt > /* @__PURE__ */ new Date();
+          const isTrialExpired = store.trialEndsAt && store.trialEndsAt <= /* @__PURE__ */ new Date();
+          const isPaidPlan = !store.trialEndsAt && store.plan !== "free";
+          if (isTrialExpired || !isTrialActive && !isPaidPlan) {
+            return res.status(403).json({ error: "O trial gratuito desta loja expirou ou n\xE3o h\xE1 plano ativo. O conte\xFAdo est\xE1 bloqueado." });
           }
-          const limits = isTrialActive ? TRIAL_LIMITS : PLANS[planId] || TRIAL_LIMITS;
+          const limits = PLANS[planId] || TRIAL_LIMITS;
           if (store.currentCycleViews >= limits.maxViews) {
             return res.status(403).json({ error: "Cota mensal de visualiza\xE7\xF5es da loja excedida. O conte\xFAdo est\xE1 bloqueado at\xE9 o upgrade do plano." });
           }
@@ -1615,7 +2194,8 @@ function registerRoutes(app2) {
           productsByVideo[record.videoId].push({
             startTime: record.startTime,
             endTime: record.endTime,
-            ...record.product
+            ...record.product,
+            price: formatPrice(record.product.price)
           });
         });
       }
@@ -1638,12 +2218,26 @@ function registerRoutes(app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/embed/carousel.js", (_req, res) => {
+  app2.get("/embed/vidshop.js", (_req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "application/javascript");
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     const origin = process.env.PUBLIC_URL || "";
     res.send(publicScript.replace("__API_ORIGIN__", origin));
+  });
+  app2.get("/embed/carousel.js", (_req, res) => {
+    res.redirect(301, "/embed/vidshop.js");
+  });
+  app2.get("/embed/vidshop.css", (_req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", "text/css");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    const cssPath = path5.resolve("server/embed/vidshop.css");
+    if (fs4.existsSync(cssPath)) {
+      res.sendFile(cssPath);
+    } else {
+      res.status(404).send("CSS not found");
+    }
   });
   app2.get("/api/carousels", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
@@ -1690,7 +2284,8 @@ function registerRoutes(app2) {
         productsByVideo[record.videoId].push({
           startTime: record.startTime,
           endTime: record.endTime,
-          ...record.product
+          ...record.product,
+          price: formatPrice(record.product.price)
         });
       });
     }
@@ -1704,18 +2299,37 @@ function registerRoutes(app2) {
       if (!activeStore)
         return res.status(403).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
       const planId = activeStore.plan;
-      const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > /* @__PURE__ */ new Date();
-      const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= /* @__PURE__ */ new Date());
-      if (isTrialExpired) {
-        return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar criando carross\xE9is.", trialExpired: true });
+      const isTrialActive = activeStore.trialEndsAt && activeStore.trialEndsAt > /* @__PURE__ */ new Date();
+      const isTrialExpired = activeStore.trialEndsAt && activeStore.trialEndsAt <= /* @__PURE__ */ new Date();
+      const isPaidPlan = !activeStore.trialEndsAt && activeStore.plan !== "free";
+      if (isTrialExpired || !isTrialActive && !isPaidPlan) {
+        return res.status(403).json({ error: "Seu trial gratuito expirou ou n\xE3o h\xE1 plano ativo. Assine um plano para continuar criando carross\xE9is.", trialExpired: true });
       }
-      const limits = isTrialActive ? TRIAL_LIMITS : PLANS[planId] || TRIAL_LIMITS;
+      const limits = PLANS[planId] || TRIAL_LIMITS;
       const [countRes] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(videoCarousels).where(eq3(videoCarousels.storeId, storeId));
       const count = countRes.count;
       if (count >= limits.maxCarousels) {
         return res.status(403).json({ error: `Limite atingido. Voc\xEA pode criar at\xE9 ${limits.maxCarousels} carrossel(eis) no plano ${limits.name}. Fa\xE7a o upgrade para expandir.` });
       }
-      const { name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime } = req.body;
+      const {
+        name,
+        title,
+        subtitle,
+        titleColor,
+        subtitleColor,
+        layout,
+        showProducts,
+        previewTime,
+        maxWidth,
+        marginTop,
+        marginRight,
+        marginBottom,
+        marginLeft,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft
+      } = req.body;
       const [carousel] = await db.insert(videoCarousels).values({
         storeId,
         name: name || "Novo Carrossel",
@@ -1725,7 +2339,16 @@ function registerRoutes(app2) {
         subtitleColor: subtitleColor || "#666666",
         layout: layout || "3d-card",
         showProducts: showProducts ?? true,
-        previewTime: previewTime ?? 3
+        previewTime: previewTime ?? 3,
+        maxWidth: maxWidth || "100%",
+        marginTop: marginTop || "0px",
+        marginRight: marginRight || "0px",
+        marginBottom: marginBottom || "0px",
+        marginLeft: marginLeft || "0px",
+        paddingTop: paddingTop || "0px",
+        paddingRight: paddingRight || "0px",
+        paddingBottom: paddingBottom || "0px",
+        paddingLeft: paddingLeft || "0px"
       }).returning();
       res.status(201).json({ carousel });
     } catch (e) {
@@ -1735,9 +2358,47 @@ function registerRoutes(app2) {
   app2.put("/api/carousels/:id", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
     const carouselId = parseInt(req.params.id);
-    const { name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoIds } = req.body;
+    const {
+      name,
+      title,
+      subtitle,
+      titleColor,
+      subtitleColor,
+      layout,
+      showProducts,
+      previewTime,
+      videoIds,
+      maxWidth,
+      marginTop,
+      marginRight,
+      marginBottom,
+      marginLeft,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft
+    } = req.body;
     try {
-      const [updated] = await db.update(videoCarousels).set({ name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq3(videoCarousels.id, carouselId), eq3(videoCarousels.storeId, storeId))).returning();
+      const [updated] = await db.update(videoCarousels).set({
+        name,
+        title,
+        subtitle,
+        titleColor,
+        subtitleColor,
+        layout,
+        showProducts,
+        previewTime,
+        maxWidth,
+        marginTop,
+        marginRight,
+        marginBottom,
+        marginLeft,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(and(eq3(videoCarousels.id, carouselId), eq3(videoCarousels.storeId, storeId))).returning();
       if (!updated)
         return res.status(404).json({ error: "Carrossel n\xE3o encontrado" });
       if (videoIds && Array.isArray(videoIds)) {
@@ -1766,10 +2427,71 @@ function registerRoutes(app2) {
     purgeCloudflareCache([`${publicUrl}/api/public/carousels/${parseInt(req.params.id)}`]);
     res.sendStatus(204);
   });
-  app2.get("/api/videos", authMiddleware, async (req, res) => {
+  app2.get("/api/stories", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
-    const list = await db.select().from(shoppableVideos).where(eq3(shoppableVideos.storeId, storeId)).orderBy(desc(shoppableVideos.createdAt));
-    const videoIds = list.map((v) => v.id);
+    const myStories = await db.select().from(videoStories).where(eq3(videoStories.storeId, storeId)).orderBy(desc(videoStories.createdAt));
+    res.json({ stories: myStories });
+  });
+  app2.post("/api/stories", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const {
+      name,
+      title,
+      shape,
+      borderGradient,
+      borderEnabled,
+      showProducts,
+      maxWidth,
+      marginTop,
+      marginRight,
+      marginBottom,
+      marginLeft,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      bubbleWidth,
+      bubbleHeight,
+      borderRadius
+    } = req.body;
+    if (!name)
+      return res.status(400).json({ error: "Nome da story \xE9 obrigat\xF3rio" });
+    const [story] = await db.insert(videoStories).values({
+      storeId,
+      name,
+      title,
+      shape: shape || "round",
+      borderGradient: borderGradient || "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+      borderEnabled: borderEnabled ?? true,
+      showProducts: showProducts ?? true,
+      maxWidth: maxWidth || "100%",
+      marginTop: marginTop || "0px",
+      marginRight: marginRight || "0px",
+      marginBottom: marginBottom || "0px",
+      marginLeft: marginLeft || "0px",
+      paddingTop: paddingTop || "0px",
+      paddingRight: paddingRight || "0px",
+      paddingBottom: paddingBottom || "0px",
+      paddingLeft: paddingLeft || "0px",
+      bubbleWidth: bubbleWidth || "80px",
+      bubbleHeight: bubbleHeight || "80px"
+    }).returning();
+    res.status(201).json({ story });
+  });
+  app2.get("/api/stories/:id", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const storyId = parseInt(req.params.id);
+    const [story] = await db.select().from(videoStories).where(and(eq3(videoStories.id, storyId), eq3(videoStories.storeId, storeId))).limit(1);
+    if (!story)
+      return res.status(404).json({ error: "Story n\xE3o encontrada" });
+    const videosRaw = await db.select({
+      id: shoppableVideos.id,
+      title: shoppableVideos.title,
+      mediaUrl: shoppableVideos.mediaUrl,
+      thumbnailUrl: shoppableVideos.thumbnailUrl,
+      position: storyVideos.position
+    }).from(storyVideos).innerJoin(shoppableVideos, eq3(storyVideos.videoId, shoppableVideos.id)).where(eq3(storyVideos.storyId, storyId)).orderBy(storyVideos.position);
+    const videoIds = videosRaw.map((v) => v.id);
     let productsByVideo = {};
     if (videoIds.length > 0) {
       const vp = await db.select({
@@ -1794,6 +2516,183 @@ function registerRoutes(app2) {
         });
       });
     }
+    const videos = videosRaw.map((v) => ({
+      ...v,
+      productsList: productsByVideo[v.id] || []
+    }));
+    res.json({ ...story, videos });
+  });
+  app2.put("/api/stories/:id", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const storyId = parseInt(req.params.id);
+    const {
+      name,
+      title,
+      shape,
+      borderGradient,
+      borderEnabled,
+      showProducts,
+      videos,
+      maxWidth,
+      marginTop,
+      marginRight,
+      marginBottom,
+      marginLeft,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      bubbleWidth,
+      bubbleHeight,
+      borderRadius
+    } = req.body;
+    const [existing] = await db.select().from(videoStories).where(and(eq3(videoStories.id, storyId), eq3(videoStories.storeId, storeId))).limit(1);
+    if (!existing)
+      return res.status(404).json({ error: "Story n\xE3o encontrada" });
+    const [story] = await db.update(videoStories).set({
+      name,
+      title,
+      shape,
+      borderGradient,
+      borderEnabled,
+      showProducts,
+      maxWidth,
+      marginTop,
+      marginRight,
+      marginBottom,
+      marginLeft,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      bubbleWidth,
+      bubbleHeight,
+      borderRadius: parseInt(borderRadius || "8"),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq3(videoStories.id, storyId)).returning();
+    if (videos && Array.isArray(videos)) {
+      await db.delete(storyVideos).where(eq3(storyVideos.storyId, storyId));
+      if (videos.length > 0) {
+        await db.insert(storyVideos).values(
+          videos.map((v, index) => ({
+            storyId,
+            videoId: v.id,
+            position: index
+          }))
+        );
+      }
+    }
+    res.json({ story });
+  });
+  app2.delete("/api/stories/:id", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const storyId = parseInt(req.params.id);
+    const [deleted] = await db.delete(videoStories).where(and(eq3(videoStories.id, storyId), eq3(videoStories.storeId, storeId))).returning();
+    if (!deleted)
+      return res.status(404).json({ error: "Story n\xE3o encontrada" });
+    res.json({ success: true });
+  });
+  app2.get("/api/public/stories/:id", async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const storyId = parseInt(req.params.id);
+      if (isNaN(storyId))
+        return res.status(400).json({ error: "ID inv\xE1lido" });
+      const [story] = await db.select().from(videoStories).where(eq3(videoStories.id, storyId));
+      if (!story)
+        return res.status(404).json({ error: "Story n\xE3o encontrada" });
+      const [store] = await db.select().from(stores).where(eq3(stores.id, story.storeId));
+      if (store) {
+        if (store.allowedDomain) {
+          const origin = req.headers.origin || req.headers.referer;
+          if (origin && !origin.includes(store.allowedDomain)) {
+            return res.status(403).json({ error: "Dom\xEDnio n\xE3o autorizado para esta story." });
+          }
+        }
+        const planId = store.plan;
+        const isTrialActive = store.trialEndsAt && store.trialEndsAt > /* @__PURE__ */ new Date();
+        const isTrialExpired = store.trialEndsAt && store.trialEndsAt <= /* @__PURE__ */ new Date();
+        const isPaidPlan = !store.trialEndsAt && store.plan !== "free";
+        if (isTrialExpired || !isTrialActive && !isPaidPlan) {
+          return res.status(403).json({ error: "O trial gratuito desta loja expirou ou n\xE3o h\xE1 plano ativo. O conte\xFAdo est\xE1 bloqueado." });
+        }
+        const limits = PLANS[planId] || TRIAL_LIMITS;
+        if (store.currentCycleViews >= limits.maxViews) {
+          return res.status(403).json({ error: "Cota mensal de visualiza\xE7\xF5es da loja excedida. O conte\xFAdo est\xE1 bloqueado." });
+        }
+      }
+      const ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress || "0.0.0.0";
+      if (shouldCountView(-storyId, ip)) {
+        const date = todayUTC();
+        db.execute(sql2`
+                    INSERT INTO story_view_events (store_id, story_id, date, count)
+                    VALUES (${story.storeId}, ${storyId}, ${date}, 1)
+                    ON CONFLICT (store_id, story_id, date) 
+                    DO UPDATE SET count = story_view_events.count + 1
+                `).catch((e) => console.error("[view-tracker] Story view failed:", e));
+        db.update(stores).set({
+          currentCycleViews: sql2`${stores.currentCycleViews} + 1`
+        }).where(eq3(stores.id, story.storeId)).catch((e) => console.error("[view-tracker] Views increment failed:", e));
+      }
+      const svRaw = await db.select({
+        id: shoppableVideos.id,
+        title: shoppableVideos.title,
+        mediaUrl: shoppableVideos.mediaUrl,
+        thumbnailUrl: shoppableVideos.thumbnailUrl,
+        position: storyVideos.position
+      }).from(storyVideos).innerJoin(shoppableVideos, eq3(storyVideos.videoId, shoppableVideos.id)).where(eq3(storyVideos.storyId, storyId)).orderBy(storyVideos.position);
+      const videos = await Promise.all(svRaw.map(async (v) => {
+        const productsList = await db.select({
+          id: products.id,
+          title: products.title,
+          price: products.price,
+          imageLink: products.imageLink,
+          link: products.link,
+          startTime: videoProducts.startTime,
+          endTime: videoProducts.endTime
+        }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(eq3(videoProducts.videoId, v.id));
+        const formattedProducts = productsList.map((p) => ({
+          ...p,
+          price: formatPrice(p.price)
+        }));
+        return { ...v, products: formattedProducts };
+      }));
+      res.json({ ...story, videos });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.get("/api/videos", authMiddleware, async (req, res) => {
+    const storeId = getStoreId(req);
+    const list = await db.select().from(shoppableVideos).where(eq3(shoppableVideos.storeId, storeId)).orderBy(desc(shoppableVideos.createdAt));
+    const videoIds = list.map((v) => v.id);
+    let productsByVideo = {};
+    if (videoIds.length > 0) {
+      const vp = await db.select({
+        videoId: videoProducts.videoId,
+        startTime: videoProducts.startTime,
+        endTime: videoProducts.endTime,
+        product: {
+          id: products.id,
+          title: products.title,
+          price: products.price,
+          imageLink: products.imageLink,
+          link: products.link
+        }
+      }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(inArray(videoProducts.videoId, videoIds)).orderBy(videoProducts.startTime);
+      vp.forEach((record) => {
+        if (!productsByVideo[record.videoId])
+          productsByVideo[record.videoId] = [];
+        productsByVideo[record.videoId].push({
+          startTime: record.startTime,
+          endTime: record.endTime,
+          ...record.product,
+          price: formatPrice(record.product.price)
+        });
+      });
+    }
     res.json({ videos: list.map((v) => ({ ...v, productsList: productsByVideo[v.id] || [] })) });
   });
   app2.get("/api/videos/:id", authMiddleware, async (req, res) => {
@@ -1815,7 +2714,14 @@ function registerRoutes(app2) {
         imageLink: products.imageLink
       }
     }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(eq3(videoProducts.videoId, videoId)).orderBy(videoProducts.startTime);
-    res.json({ video, videoProducts: vp });
+    const formattedVp = vp.map((record) => ({
+      ...record,
+      product: {
+        ...record.product,
+        price: formatPrice(record.product.price)
+      }
+    }));
+    res.json({ video, videoProducts: formattedVp });
   });
   app2.post("/api/videos", authMiddleware, async (req, res) => {
     try {
@@ -1825,12 +2731,13 @@ function registerRoutes(app2) {
       if (!activeStore)
         return res.status(403).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
       const planId = activeStore.plan;
-      const isTrialActive = activeStore.plan === "free" && activeStore.trialEndsAt && activeStore.trialEndsAt > /* @__PURE__ */ new Date();
-      const isTrialExpired = activeStore.plan === "free" && (!activeStore.trialEndsAt || activeStore.trialEndsAt <= /* @__PURE__ */ new Date());
-      if (isTrialExpired) {
-        return res.status(403).json({ error: "Seu trial gratuito expirou. Assine um plano para continuar adicionando v\xEDdeos.", trialExpired: true });
+      const isTrialActive = activeStore.trialEndsAt && activeStore.trialEndsAt > /* @__PURE__ */ new Date();
+      const isTrialExpired = activeStore.trialEndsAt && activeStore.trialEndsAt <= /* @__PURE__ */ new Date();
+      const isPaidPlan = !activeStore.trialEndsAt && activeStore.plan !== "free";
+      if (isTrialExpired || !isTrialActive && !isPaidPlan) {
+        return res.status(403).json({ error: "Seu trial gratuito expirou ou n\xE3o h\xE1 plano ativo. Assine um plano para continuar adicionando v\xEDdeos.", trialExpired: true });
       }
-      const limits = isTrialActive ? TRIAL_LIMITS : PLANS[planId] || TRIAL_LIMITS;
+      const limits = PLANS[planId] || TRIAL_LIMITS;
       const [countRes] = await db.select({ count: sql2`count(*)`.mapWith(Number) }).from(shoppableVideos).where(eq3(shoppableVideos.storeId, storeId));
       const count = countRes.count;
       if (count >= limits.maxVideos) {
@@ -2011,7 +2918,9 @@ function registerRoutes(app2) {
         if (storeId && planId) {
           await db.update(stores).set({
             plan: planId,
-            currentCycleViews: 0
+            currentCycleViews: 0,
+            trialEndsAt: null
+            // No longer a trial once paid
           }).where(eq3(stores.id, storeId));
         }
         if (userId && session.subscription) {
@@ -2122,7 +3031,7 @@ function startSyncScheduler() {
 }
 
 // server/index.ts
-import path5 from "path";
+import path6 from "path";
 import { eq as eq5 } from "drizzle-orm";
 dotenv3.config();
 var app = express2();
@@ -2131,7 +3040,7 @@ var server = createServer(app);
 app.use("/api/stripe/webhook", express2.raw({ type: "application/json" }));
 app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
-app.use("/uploads", express2.static(path5.resolve("uploads")));
+app.use("/uploads", express2.static(path6.resolve("uploads")));
 registerRoutes(app);
 await setupVite(app, server);
 await db.update(catalogImports).set({ status: "failed", error: "Interrompido pela reinicializa\xE7\xE3o do servidor" }).where(eq5(catalogImports.status, "processing"));

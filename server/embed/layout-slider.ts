@@ -1,7 +1,6 @@
-declare function escAttr(s: any): string;
+import { escAttr } from "./utils";
 
-export const layoutSlider = 
-  function buildSlider(el: any, data: any) {
+export function buildSlider(el: any, data: any) {
     var videos = data.videos || [];
     if (!videos.length) return;
 
@@ -292,7 +291,5 @@ export const layoutSlider =
               }
           });
       });
-  }   // end initSliderLogic
-}   // end buildSlider
-
-;
+  }
+}

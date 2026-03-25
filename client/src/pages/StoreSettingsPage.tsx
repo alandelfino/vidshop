@@ -28,7 +28,10 @@ export default function StoreSettingsPage() {
       const res = await apiFetch(`/api/stores/${activeStore.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: storeName, allowedDomain: domain })
+        body: JSON.stringify({ 
+          name: storeName, 
+          allowedDomain: domain
+        })
       });
       if (res.ok) {
         await fetchStores();
@@ -56,7 +59,60 @@ export default function StoreSettingsPage() {
 
       <Card className="border border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Informações e Acesso</CardTitle>
+          <CardTitle className="text-base text-primary">Instalação Global</CardTitle>
+          <CardDescription>
+            Copie e cole os códigos abaixo no seu site para habilitar os carrosséis e stories.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">CSS do Embed (Recomendado no &lt;head&gt;)</Label>
+            <div className="relative group">
+              <pre className="p-3 bg-muted rounded-md text-xs overflow-x-auto border border-border font-mono">
+                {`<link rel="stylesheet" href="${window.location.origin}/embed/vidshop.css">`}
+              </pre>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="absolute top-2 right-2 h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  navigator.clipboard.writeText(`<link rel="stylesheet" href="${window.location.origin}/embed/vidshop.css">`);
+                  alert("CSS copiado!");
+                }}
+              >
+                Copiar
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Script JS (Recomendado antes do fechamento do &lt;/body&gt;)</Label>
+            <div className="relative group">
+              <pre className="p-3 bg-muted rounded-md text-xs overflow-x-auto border border-border font-mono">
+                {`<script src="${window.location.origin}/embed/vidshop.js"></script>`}
+              </pre>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="absolute top-2 right-2 h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  navigator.clipboard.writeText(`<script src="${window.location.origin}/embed/vidshop.js"></script>`);
+                  alert("Script copiado!");
+                }}
+              >
+                Copiar
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              * O script JS injetará o CSS automaticamente se você não o adicionar manualmente, mas adicioná-lo no &lt;head&gt; evita saltos de layout (CLS).
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-primary">Informações e Acesso</CardTitle>
           <CardDescription>Altere o nome da loja e o domínio permitido para requisições externas.</CardDescription>
         </CardHeader>
         <CardContent>

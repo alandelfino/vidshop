@@ -1,3 +1,4 @@
+import express from "express";
 import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -11,10 +12,11 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { processQueue } from "./queue.js";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
-import { publicScript } from "./public-script.js";
+// import { publicScript } from "./public-script.js";
 import { purgeCloudflareCache } from "./cloudflare-purge.js";
 import { stripe, PLANS, TRIAL_LIMITS, PlanId } from "./stripe.js";
 import { shouldCountView, todayUTC } from "./view-tracker.js";
+import path from "path";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 
@@ -235,7 +237,7 @@ export function registerRoutes(app: Express) {
     app.put("/api/stores/:id", authMiddleware, async (req: Request, res: Response) => {
         const payload = (req as any).user as JwtPayload;
         const storeId = parseInt(req.params.id);
-        const { name, allowedDomain } = req.body;
+        const { name, allowedDomain, headerScripts, footerScripts } = req.body;
         
         if (!name || !allowedDomain) return res.status(400).json({ error: "Nome da loja e domínio são obrigatórios" });
 
@@ -243,7 +245,11 @@ export function registerRoutes(app: Express) {
         const [existing] = await db.select().from(stores).where(and(eq(stores.id, storeId), eq(stores.ownerId, payload.userId))).limit(1);
         if (!existing) return res.status(404).json({ error: "Loja não encontrada ou acesso negado." });
 
-        const [store] = await db.update(stores).set({ name, allowedDomain, updatedAt: new Date() }).where(eq(stores.id, storeId)).returning();
+        const [store] = await db.update(stores).set({ 
+            name, 
+            allowedDomain, 
+            updatedAt: new Date() 
+        }).where(and(eq(stores.id, storeId), eq(stores.ownerId, payload.userId))).returning();
         res.json({ store });
     });
 
@@ -563,7 +569,10 @@ export function registerRoutes(app: Express) {
             }
 
             // ── Send the response FIRST (zero extra latency for the visitor) ──
-            res.json({ carousel, videos: cv.map(r => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] })) });
+            res.json({ 
+                carousel, 
+                videos: cv.map(r => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] })) 
+            });
 
             // ── Non-blocking view count increment (happens AFTER response) ────
             if (targetStore) {
@@ -590,15 +599,27 @@ export function registerRoutes(app: Express) {
         }
     });
 
-    // vidshop.js embed widget (global script)
-    app.get("/embed/vidshop.js", (_req: Request, res: Response) => {
+    // ─── CONSOLIDATED EMBED ASSETS (Static) ───────────────────────────
+    
+    // Serve static files from the embed directory with CORS
+    app.use("/embed", (req, res, next) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Content-Type", "application/javascript");
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        next();
+    });
 
-        const origin = process.env.PUBLIC_URL || "";
+    // Try dist first (built/minified), then source (for CSS/dev)
+    app.use("/embed", express.static(path.resolve("dist/public/embed")));
+    app.use("/embed", express.static(path.resolve("server/embed")));
 
-        res.send(publicScript.replace("__API_ORIGIN__", origin));
+    // Dynamic fallback for vidshop.js in DEV if not yet bundled
+    app.get("/embed/vidshop.js", async (req, res) => {
+        const distPath = path.resolve("dist/public/embed/vidshop.js");
+        if (fs.existsSync(distPath)) {
+            return res.sendFile(distPath);
+        }
+        res.status(404).send("Embed script not found. Run 'npm run build:embed'.");
     });
 
     // Backwards compatibility for carousel.js
@@ -699,7 +720,8 @@ export function registerRoutes(app: Express) {
             const { 
                 name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
                 maxWidth, marginTop, marginRight, marginBottom, marginLeft,
-                paddingTop, paddingRight, paddingBottom, paddingLeft 
+                paddingTop, paddingRight, paddingBottom, paddingLeft,
+                integrationMode, selector, insertionMethod, conditions
             } = req.body;
             const [carousel] = await db.insert(videoCarousels).values({
                 storeId,
@@ -720,6 +742,10 @@ export function registerRoutes(app: Express) {
                 paddingRight: paddingRight || "0px",
                 paddingBottom: paddingBottom || "0px",
                 paddingLeft: paddingLeft || "0px",
+                integrationMode: integrationMode || "code",
+                selector: selector || null,
+                insertionMethod: insertionMethod || "after",
+                conditions: conditions || [],
             }).returning();
             res.status(201).json({ carousel });
         } catch (e: any) {
@@ -733,7 +759,8 @@ export function registerRoutes(app: Express) {
         const { 
             name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoIds,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
-            paddingTop, paddingRight, paddingBottom, paddingLeft 
+            paddingTop, paddingRight, paddingBottom, paddingLeft,
+            integrationMode, selector, insertionMethod, conditions
         } = req.body;
         try {
             const [updated] = await db.update(videoCarousels)
@@ -741,6 +768,7 @@ export function registerRoutes(app: Express) {
                     name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, 
                     maxWidth, marginTop, marginRight, marginBottom, marginLeft,
                     paddingTop, paddingRight, paddingBottom, paddingLeft,
+                    integrationMode, selector, insertionMethod, conditions,
                     updatedAt: new Date() 
                 })
                 .where(and(eq(videoCarousels.id, carouselId), eq(videoCarousels.storeId, storeId)))
@@ -792,7 +820,8 @@ export function registerRoutes(app: Express) {
             name, title, shape, borderGradient, borderEnabled, showProducts,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
             paddingTop, paddingRight, paddingBottom, paddingLeft,
-            bubbleWidth, bubbleHeight, borderRadius
+            bubbleWidth, bubbleHeight, borderRadius,
+            integrationMode, selector, insertionMethod, conditions
         } = req.body;
         if (!name) return res.status(400).json({ error: "Nome da story é obrigatório" });
 
@@ -815,6 +844,10 @@ export function registerRoutes(app: Express) {
             paddingLeft: paddingLeft || "0px",
             bubbleWidth: bubbleWidth || "80px",
             bubbleHeight: bubbleHeight || "80px",
+            integrationMode: integrationMode || "code",
+            selector: selector || null,
+            insertionMethod: insertionMethod || "after",
+            conditions: conditions || [],
         }).returning();
 
         res.status(201).json({ story });
@@ -881,7 +914,8 @@ export function registerRoutes(app: Express) {
             name, title, shape, borderGradient, borderEnabled, showProducts, videos,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
             paddingTop, paddingRight, paddingBottom, paddingLeft,
-            bubbleWidth, bubbleHeight, borderRadius
+            bubbleWidth, bubbleHeight, borderRadius,
+            integrationMode, selector, insertionMethod, conditions
         } = req.body;
 
         const [existing] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
@@ -906,6 +940,10 @@ export function registerRoutes(app: Express) {
             bubbleWidth,
             bubbleHeight,
             borderRadius: parseInt(borderRadius || "8"),
+            integrationMode,
+            selector,
+            insertionMethod,
+            conditions,
             updatedAt: new Date(),
         })
         .where(eq(videoStories.id, storyId))
@@ -1023,7 +1061,39 @@ export function registerRoutes(app: Express) {
                 return { ...v, products: formattedProducts };
             }));
 
-            res.json({ ...story, videos });
+            res.json({ 
+                ...story, 
+                videos 
+            });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // General public config for a store (used by vidshop.js)
+    app.get("/api/public/store-config", async (req: Request, res: Response) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET");
+        res.setHeader("Cache-Control", "no-store");
+
+        try {
+            const origin = req.headers.origin || req.headers.referer;
+            if (!origin) return res.status(400).json({ error: "Origin/Referer missing" });
+
+            // Find store by domain
+            const allStores = await db.select().from(stores);
+            const store = allStores.find(s => s.allowedDomain && origin.includes(s.allowedDomain));
+
+            if (!store) return res.status(404).json({ error: "Store not found for this domain" });
+
+            const carousels = await db.select().from(videoCarousels).where(eq(videoCarousels.storeId, store.id));
+            const stories = await db.select().from(videoStories).where(eq(videoStories.storeId, store.id));
+
+            res.json({
+                store: { id: store.id, name: store.name },
+                carousels,
+                stories
+            });
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }

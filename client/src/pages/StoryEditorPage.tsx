@@ -42,6 +42,12 @@ export default function StoryEditorPage() {
     const [bubbleHeight, setBubbleHeight] = useState("80px");
     const [borderRadius, setBorderRadius] = useState(8);
 
+    // Integration & Conditions
+    const [integrationMode, setIntegrationMode] = useState("code");
+    const [selector, setSelector] = useState("");
+    const [insertionMethod, setInsertionMethod] = useState("after");
+    const [conditions, setConditions] = useState<any[]>([]);
+
     // Customization
     const [color1, setColor1] = useState("#f09433");
     const [color2, setColor2] = useState("#bc1888");
@@ -112,6 +118,10 @@ export default function StoryEditorPage() {
                 setPaddingRight(data.paddingRight || "0px");
                 setPaddingBottom(data.paddingBottom || "0px");
                 setPaddingLeft(data.paddingLeft || "0px");
+                setIntegrationMode(data.integrationMode || "code");
+                setSelector(data.selector || "");
+                setInsertionMethod(data.insertionMethod || "after");
+                setConditions(data.conditions || []);
                 setVideoList((data.videos || []).map((v: any) => ({
                     videoId: v.id,
                     video: v
@@ -173,6 +183,7 @@ export default function StoryEditorPage() {
                 maxWidth, marginTop, marginRight, marginBottom, marginLeft,
                 paddingTop, paddingRight, paddingBottom, paddingLeft,
                 bubbleWidth, bubbleHeight, borderRadius,
+                integrationMode, selector, insertionMethod, conditions,
                 videos: videoList.map(e => ({ id: e.videoId }))
             };
 
@@ -569,9 +580,25 @@ export default function StoryEditorPage() {
                 </div>
             )}
 
-            {/* Embed Section — only for existing stories */}
+            {/* Embed & Integration Section */}
             {!isNew && (
-                <EmbedSection id={id!} />
+                <IntegrationSection 
+                    id={id!} 
+                    integrationMode={integrationMode} 
+                    setIntegrationMode={setIntegrationMode}
+                    selector={selector}
+                    setSelector={setSelector}
+                    insertionMethod={insertionMethod}
+                    setInsertionMethod={setInsertionMethod}
+                />
+            )}
+
+            {/* Conditions Section */}
+            {!isNew && (
+                <ConditionsSection 
+                    conditions={conditions}
+                    setConditions={setConditions}
+                />
             )}
         </div>
     );
@@ -794,7 +821,13 @@ function LivePreviewSection({
     );
 }
 
-function EmbedSection({ id }: { id: string }) {
+function IntegrationSection({ 
+    id, integrationMode, setIntegrationMode, selector, setSelector, insertionMethod, setInsertionMethod 
+}: { 
+    id: string, integrationMode: string, setIntegrationMode: (v: string) => void,
+    selector: string, setSelector: (v: string) => void,
+    insertionMethod: string, setInsertionMethod: (v: string) => void
+}) {
     const [copied, setCopied] = useState<"script" | "div" | null>(null);
     const origin = window.location.origin;
     const scriptTag = `<script src="${origin}/embed/vidshop.js" async></script>`;
@@ -807,34 +840,82 @@ function EmbedSection({ id }: { id: string }) {
     };
 
     return (
-        <Card className="border-border rounded-xl">
+        <Card className="border-border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
             <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center gap-2">
                 <Code2 className="w-4 h-4 text-muted-foreground" />
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Integração — Código de Embed</CardTitle>
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Integração</CardTitle>
             </CardHeader>
-            <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
-                        <p className="text-sm font-semibold">Adicione UMA VEZ no template da loja</p>
+            <CardContent className="p-5 flex flex-col gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1.5">Modo de Integração</label>
+                            <select 
+                                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                value={integrationMode}
+                                onChange={e => setIntegrationMode(e.target.value)}
+                            >
+                                <option value="code">Código (Manual)</option>
+                                <option value="selector">Seletor CSS (Automático)</option>
+                            </select>
+                        </div>
+
+                        {integrationMode === "selector" && (
+                            <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2">
+                                <div className="grid gap-2">
+                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Posição de Inserção</label>
+                                    <select 
+                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                        value={insertionMethod}
+                                        onChange={e => setInsertionMethod(e.target.value)}
+                                    >
+                                        <option value="before">Antes de</option>
+                                        <option value="after">Depois de</option>
+                                        <option value="prepend">Primeiro item dentro de</option>
+                                        <option value="append">Último item dentro de</option>
+                                    </select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <label className="text-xs font-semibold uppercase text-muted-foreground">Seletor CSS</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="Ex: .product-description ou #main-content"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                        value={selector}
+                                        onChange={e => setSelector(e.target.value)}
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">O story hub será injetado automaticamente em relação a este elemento.</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <div className="relative">
-                        <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground whitespace-pre-wrap break-all">{scriptTag}</pre>
-                        <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(scriptTag, "script")}>
-                            {copied === "script" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                        </Button>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
-                        <p className="text-sm font-semibold">Cole onde quiser exibir os Stories</p>
-                    </div>
-                    <div className="relative">
-                        <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">{divTag}</pre>
-                        <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(divTag, "div")}>
-                            {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                        </Button>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                            <p className="text-sm font-semibold">Script Geral (Template)</p>
+                        </div>
+                        <div className="relative">
+                            <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground whitespace-pre-wrap break-all">{scriptTag}</pre>
+                            <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(scriptTag, "script")}>
+                                {copied === "script" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                            </Button>
+                        </div>
+                        
+                        {integrationMode === "code" && (
+                            <div className="space-y-2 pt-2 animate-in fade-in">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">2</span>
+                                    <p className="text-sm font-semibold">Cole onde quiser exibir</p>
+                                </div>
+                                <div className="relative">
+                                    <pre className="text-[11px] bg-muted/40 border border-border rounded-lg p-3 overflow-x-auto font-mono text-foreground">{divTag}</pre>
+                                    <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copy(divTag, "div")}>
+                                        {copied === "div" ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="sm:col-span-2 pt-2 border-t border-border mt-2">
@@ -843,6 +924,91 @@ function EmbedSection({ id }: { id: string }) {
                         Se você já tem um Carrossel ou Story ativo, não há necessidade de adicionar o script novamente, basta colocar a div acima.
                     </p>
                 </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ConditionsSection({ conditions, setConditions }: { conditions: any[], setConditions: (v: any[]) => void }) {
+    const addCondition = () => {
+        setConditions([...conditions, { data: "url", operator: "contains", value: "" }]);
+    };
+
+    const removeCondition = (idx: number) => {
+        setConditions(conditions.filter((_, i) => i !== idx));
+    };
+
+    const updateCondition = (idx: number, field: string, val: string) => {
+        const next = [...conditions];
+        next[idx] = { ...next[idx], [field]: val };
+        setConditions(next);
+    };
+
+    return (
+        <Card className="border-border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-xl">
+            <CardHeader className="pb-4 border-b border-border/50 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <CircleDot className="w-3.5 h-3.5 text-muted-foreground" />
+                    <CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Condições de Exibição</CardTitle>
+                </div>
+                <Button size="sm" variant="outline" onClick={addCondition} className="h-7 text-[10px] uppercase font-bold">
+                    <Plus className="w-3 h-3 mr-1" /> Add Condição
+                </Button>
+            </CardHeader>
+            <CardContent className="p-5">
+                {conditions.length === 0 ? (
+                    <div className="text-center py-6 border-2 border-dashed border-border rounded-xl">
+                        <p className="text-xs text-muted-foreground">O story hub será exibido em todas as páginas por padrão.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {conditions.map((c, idx) => (
+                            <div key={idx} className="flex flex-col sm:flex-row gap-3 items-end bg-muted/20 p-4 rounded-lg border border-border/50 relative group">
+                                <div className="flex-1 w-full space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase text-muted-foreground">Dados</label>
+                                    <select 
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                                        value={c.data}
+                                        onChange={e => updateCondition(idx, "data", e.target.value)}
+                                    >
+                                        <option value="url">Se a URL</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1 w-full space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase text-muted-foreground">Condição</label>
+                                    <select 
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                                        value={c.operator}
+                                        onChange={e => updateCondition(idx, "operator", e.target.value)}
+                                    >
+                                        <option value="equals">for igual</option>
+                                        <option value="not_equals">não é igual</option>
+                                        <option value="contains">contém</option>
+                                        <option value="not_contains">não contém</option>
+                                    </select>
+                                </div>
+                                <div className="flex-[2] w-full space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase text-muted-foreground">Valor</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Valor ou parte da URL"
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                        value={c.value}
+                                        onChange={e => updateCondition(idx, "value", e.target.value)}
+                                    />
+                                </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => removeCondition(idx)}
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
