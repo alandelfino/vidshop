@@ -17,6 +17,14 @@ export default defineConfig(({ mode }) => {
       outDir: path.resolve(__dirname, "dist/public/embed"),
       emptyOutDir: false,
       minify: true,
+      rollupOptions: {
+        output: {
+          assetFileNames: (assetInfo) => {
+            if (assetInfo.name === "style.css") return "vidshop.css";
+            return assetInfo.name;
+          },
+        },
+      },
     },
     define: {
       "API_ORIGIN": JSON.stringify(env.VITE_API_ORIGIN || ""),

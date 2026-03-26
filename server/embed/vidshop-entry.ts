@@ -3,6 +3,7 @@ import { build3DCard } from "./layout-3d-card";
 import { buildSlider } from "./layout-slider";
 import { buildStories } from "./layout-stories";
 import { applyLayoutStyles } from "./utils";
+import "./vidshop.css";
 
 declare var API_ORIGIN: string;
 

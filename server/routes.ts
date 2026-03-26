@@ -1077,14 +1077,28 @@ export function registerRoutes(app: Express) {
         res.setHeader("Cache-Control", "no-store");
 
         try {
-            const origin = req.headers.origin || req.headers.referer;
-            if (!origin) return res.status(400).json({ error: "Origin/Referer missing" });
+            const origin = req.headers.origin || req.headers.referer || "";
+            if (!origin) {
+                console.warn("[store-config] Origin/Referer missing");
+                return res.status(400).json({ error: "Origin/Referer missing" });
+            }
 
-            // Find store by domain
+            // Normaliza a origem para comparação (remove protocolo, path e porta)
+            const cleanOrigin = origin.replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
+
+            // Busca todas as lojas para encontrar a que corresponde ao domínio
+            // (Melhoria futura: usar query SQL com LIKE se a tabela crescer muito)
             const allStores = await db.select().from(stores);
-            const store = allStores.find(s => s.allowedDomain && origin.includes(s.allowedDomain));
+            const store = allStores.find(s => {
+                if (!s.allowedDomain) return false;
+                const cleanAllowed = s.allowedDomain.replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
+                return cleanOrigin.includes(cleanAllowed) || cleanAllowed.includes(cleanOrigin);
+            });
 
-            if (!store) return res.status(404).json({ error: "Store not found for this domain" });
+            if (!store) {
+                console.warn(`[store-config] Loja não encontrada para a origem: ${origin} (limpa: ${cleanOrigin})`);
+                return res.status(404).json({ error: `Store not found for domain: ${cleanOrigin}. Certifique-se de que o domínio está configurado corretamente na loja.` });
+            }
 
             const carousels = await db.select().from(videoCarousels).where(eq(videoCarousels.storeId, store.id));
             const stories = await db.select().from(videoStories).where(eq(videoStories.storeId, store.id));
