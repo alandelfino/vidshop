@@ -404,6 +404,7 @@ export default function CarouselEditorPage() {
                     >
                       <option value="3d-card">Cartão 3D</option>
                       <option value="slider">Slider Simples</option>
+                      <option value="showcase-product">Showcase (Produto abaixo)</option>
                       <option value="stories" disabled>Stories (Em Breve)</option>
                     </select>
                   </div>

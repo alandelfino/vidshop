@@ -2,6 +2,7 @@ import { injectStyles } from "./styles";
 import { build3DCard } from "./layout-3d-card";
 import { buildSlider } from "./layout-slider";
 import { buildStories } from "./layout-stories";
+import { buildShowcaseProduct } from "./layout-showcase-product";
 import { applyLayoutStyles } from "./utils";
 import "./vidshop.css";
 
@@ -37,6 +38,8 @@ declare var API_ORIGIN: string;
       build3DCard(el, data);
     } else if (layout === "slider") {
       buildSlider(el, data);
+    } else if (layout === "showcase-product") {
+      buildShowcaseProduct(el, data);
     }
   }
 

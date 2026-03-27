@@ -41,7 +41,7 @@ export function build3DCard(el: any, data: any) {
     videos.forEach(function (v: any) {
         html += '<div class="frc-slide" style="' + slideStyle + '">';
         var loopAttr = data.carousel.previewTime === 0 ? '' : 'loop';
-        html += '<video muted playsinline ' + loopAttr + ' preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : '') + '">';
+        html += '<video muted playsinline ' + loopAttr + ' preload="metadata" draggable="false" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : '') + '">';
         html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
         html += '</video>';
 
@@ -314,35 +314,8 @@ export function build3DCard(el: any, data: any) {
 
         videos.forEach(function (video: any, index: number) {
             video.muted = true;
-
-            video.addEventListener('click', function (e: any) {
-                e.preventDefault();
-                if (e.target.closest('.frc-product-card') || e.target.closest('.vidshop-controls')) return;
-
-                if (index !== current) {
-                    current = index;
-                    update();
-                    return;
-                }
-
-                if (!isViewMode) {
-                    isViewMode = true;
-                    video.className = video.className.replace("is-preview", "") + " is-active";
-                    slides[index].classList.add("is-view-mode");
-                    stopTimer();
-                    video.muted = false;
-                    video.currentTime = 0;
-                    var p = video.play();
-                    if (p && p.catch) p.catch(function(){});
-                    isManualPause = false;
-                } else {
-                    isViewMode = false;
-                    slides[index].classList.remove("is-view-mode");
-                    video.muted = true;
-                    startTimer();
-                }
-            });
-
+            // Removed redundant video click listener as it is already handled by slide click
+            
             video.addEventListener('ended', function () {
                 if (isViewMode) {
                     if (!isManualPause) next();
@@ -427,12 +400,12 @@ export function build3DCard(el: any, data: any) {
                         isViewMode = true;
                         stopTimer();
                         video.muted = false;
-                        video.currentTime = 0;
+                        // Removed video.currentTime = 0 to prevent restart
                         video.play();
                         isManualPause = false;
                         slides[index].classList.add("is-view-mode");
                     } else {
-                        // Clicking in view mode toggles audio
+                        // Clicking again toggles audio (mutes) and returns to preview
                         isViewMode = false;
                         video.muted = true;
                         startTimer();
