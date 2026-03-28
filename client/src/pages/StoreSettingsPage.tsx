@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Trash2 } from "lucide-react";
 
 export default function StoreSettingsPage() {
   const { activeStore, fetchStores } = useStore();
@@ -154,6 +154,49 @@ export default function StoreSettingsPage() {
             </div>
             
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone */}
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardHeader className="pb-3 text-destructive">
+          <CardTitle className="text-base font-semibold">Zona de Perigo</CardTitle>
+          <CardDescription className="text-destructive/80 font-medium">Ações irreversíveis que impactam permanentemente sua loja.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-destructive/20 rounded-lg bg-background">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">Limpar Base de Produtos</p>
+              <p className="text-xs text-muted-foreground max-w-md">
+                Isso removerá instantaneamente todos os produtos cadastrados e desvinculará todos os produtos de seus vídeos. Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <Button 
+               variant="destructive" 
+               size="sm"
+               disabled={savingDomain} 
+               onClick={async () => {
+                 if (window.confirm("VOCÊ TEM CERTEZA? Esta ação removerá TODOS os produtos da sua base permanentemente e não pode ser desfeita.")) {
+                   try {
+                     setSavingDomain(true);
+                     const res = await apiFetch("/api/products/clear-base", { method: "POST" });
+                     if (res.ok) {
+                       toast.success("Tarefa de limpeza iniciada em background!");
+                     } else {
+                       toast.error("Erro ao solicitar limpeza.");
+                     }
+                   } catch {
+                     toast.error("Falha na comunicação com o servidor.");
+                   } finally {
+                     setSavingDomain(false);
+                   }
+                 }
+               }}
+            >
+              {savingDomain ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Limpar Base de Produtos
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

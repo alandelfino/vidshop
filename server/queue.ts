@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { db } from "./db.js";
-import { catalogImports } from "../shared/schema.js";
-import { eq } from "drizzle-orm";
+import { catalogImports, products } from "../shared/schema.js";
+import { eq, sql } from "drizzle-orm";
 import { parseCatalogStream } from "./catalogParser.js";
 
 let isProcessing = false;
@@ -42,13 +42,30 @@ export async function processQueue() {
           }
           stream = fs.createReadStream(filePath);
         } else if (job.sourceType === "url") {
-          const response = await fetch(job.sourceUrl);
+          const response = await fetch(job.sourceUrl!); // job.sourceUrl is checked in the url branch
           if (!response.ok || !response.body) {
             throw new Error(`Falha ao baixar URL HTTP ${response.status}`);
           }
           
           const { Readable } = await import("stream");
           stream = Readable.fromWeb(response.body as any);
+        } else if (job.sourceType === "clear") {
+          // Special job: Clear the product base
+          const result = await db.execute(sql`SELECT count(*) as count FROM products WHERE store_id = ${job.storeId}`);
+          const count = Number(result.rows[0].count);
+          
+          await db.delete(products).where(eq(products.storeId, job.storeId!));
+          
+          await db
+            .update(catalogImports)
+            .set({ 
+              status: "completed", 
+              processedItems: count, 
+              updatedAt: new Date() 
+            })
+            .where(eq(catalogImports.id, job.id));
+          
+          continue; // Move to next job
         } else {
           throw new Error("Source type inválido.");
         }

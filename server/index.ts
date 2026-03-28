@@ -7,7 +7,9 @@ import cors from "cors";
 import { createServer } from "http";
 import { setupVite } from "./vite.js";
 import { registerRoutes } from "./routes.js";
+console.log("[server] registerRoutes imported");
 import { startSyncScheduler } from "./syncScheduler.js";
+console.log("[server] syncScheduler imported");
 import path from "path";
 import { db } from "./db.js";
 import { catalogImports } from "../shared/schema.js";
@@ -40,3 +42,4 @@ const PORT = parseInt(process.env.PORT || "5000");
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+console.log("[server] index.ts execution reached end");

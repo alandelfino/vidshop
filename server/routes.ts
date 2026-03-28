@@ -112,13 +112,23 @@ export async function resolveDynamicVideos(storeId: number, conditions: any[], f
         });
     }
 
+    process.stdout.write(`\n[resolveDynamicVideos] storeId: ${storeId}, total videos: ${allVideos.length}, conditions: ${JSON.stringify(conditions)}, pageUrl: ${pageUrl}\n`);
+
     const filtered = allVideos.filter(video => {
-        if (!conditions || !Array.isArray(conditions)) return true;
+        if (!conditions || !Array.isArray(conditions)) {
+            return true;
+        }
+        if (conditions.length === 0) {
+            return true;
+        }
+
         for (const cond of conditions) {
             const field = cond.field;
             const operator = cond.operator;
             const isUrlOperator = operator === "url_equals_page_url" || operator === "url_contains_page_url";
-            if (!isUrlOperator && (!cond.value || (Array.isArray(cond.value) && cond.value.length === 0))) continue;
+            if (!isUrlOperator && (!cond.value || (Array.isArray(cond.value) && cond.value.length === 0))) {
+                continue;
+            }
             
             if (field === "title") {
                 const title = video.title.toLowerCase();
@@ -153,7 +163,6 @@ export async function resolveDynamicVideos(storeId: number, conditions: any[], f
                 if (operator === "url_equals_page_url" || operator === "url_contains_page_url") {
                     if (!pageUrl) return false;
                     const pUrl = pageUrl.toLowerCase().trim();
-                    // Clean query strings if exact match is used, just as a fallback
                     const pUrlNoQuery = pUrl.split('?')[0];
 
                     if (operator === "url_equals_page_url") {
@@ -183,6 +192,7 @@ export async function resolveDynamicVideos(storeId: number, conditions: any[], f
 }
 
 export function registerRoutes(app: Express) {
+    console.log("[server] registerRoutes execution started");
     // ── Auth ──────────────────────────────────────────────────────────────────
     app.post("/api/auth/register", async (req: Request, res: Response) => {
         const { name, email, password } = req.body as {
@@ -621,13 +631,11 @@ export function registerRoutes(app: Express) {
                 }
             }
 
-            // ── Fetch carousel data ────────────────────────────────────────────
             if (carousel.videoSelectionType === "dynamic") {
                 const resolved = await resolveDynamicVideos(carousel.storeId!, carousel.dynamicVideoConditions as any[], carousel.showProducts, req.query.pageUrl as string || "");
                 const videos = resolved.videos.map((v, i) => ({
                     ...v, position: i, productsList: resolved.productsByVideo[v.id] || []
                 }));
-                // Send the response FIRST (zero extra latency for the visitor)
                 res.json({ carousel, videos });
             } else {
                 const cv = await db.select({
@@ -1531,6 +1539,83 @@ export function registerRoutes(app: Express) {
         res.json({ success: true });
     });
 
+    app.post("/api/products", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const { externalId, title, description, price, brand, condition, availability, link, imageLink } = req.body;
+
+        if (!title) {
+            res.status(400).json({ error: "O título é obrigatório" });
+            return;
+        }
+
+        try {
+            const [product] = await db
+                .insert(products)
+                .values({
+                    storeId,
+                    externalId: externalId || `manual-${Date.now()}`,
+                    title,
+                    description: description || null,
+                    price: price || null,
+                    brand: brand || null,
+                    condition: condition || "new",
+                    availability: availability || "in stock",
+                    link: link || null,
+                    imageLink: imageLink || null,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                })
+                .returning();
+
+            res.status(201).json({ product });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post("/api/products/bulk-delete", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        const { ids } = req.body;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            res.status(400).json({ error: "IDs inválidos" });
+            return;
+        }
+
+        try {
+            await db
+                .delete(products)
+                .where(and(eq(products.storeId, storeId), inArray(products.id, ids)));
+
+            res.json({ success: true });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post("/api/products/clear-base", authMiddleware, async (req: Request, res: Response) => {
+        const storeId = getStoreId(req);
+        
+        try {
+            // Create a background job for clearing the product base
+            const [job] = await db.insert(catalogImports).values({
+                storeId,
+                sourceType: "clear",
+                sourceUrl: "Comando de Limpeza Manual",
+                status: "pending",
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }).returning();
+
+            // Fire and forget: start the queue processing
+            processQueue().catch(e => console.error("Error starting queue for clear:", e));
+
+            res.json({ success: true, jobId: job.id });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     // ── Stripe Billing Endpoints ──────────────────────────────────────────────
 
     // POST /api/stripe/checkout
@@ -1676,21 +1761,6 @@ export function registerRoutes(app: Express) {
         }
     });
 
-    app.delete("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
-        const storeId = getStoreId(req);
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) {
-            res.status(400).json({ error: "ID inválido" });
-            return;
-        }
-
-        const [deleted] = await db.delete(products).where(and(eq(products.id, id), eq(products.storeId, storeId))).returning();
-        if (!deleted) {
-            res.status(404).json({ error: "Produto não encontrado" });
-            return;
-        }
-        res.json({ success: true });
-    });
 
     // ── Analytics ────────────────────────────────────────────────────────────────
     // GET /api/analytics/views?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -1730,4 +1800,5 @@ export function registerRoutes(app: Express) {
         console.error("Unhandled Error:", err);
         res.status(500).json({ error: err.message || "Erro interno do servidor." });
     });
+    console.log("[server] registerRoutes execution finished");
 }

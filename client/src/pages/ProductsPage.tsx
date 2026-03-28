@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import { useState, useEffect } from "react";
-import { Search, Loader2, Edit, Trash2, PackageOpen, X, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Loader2, Edit, Trash2, PackageOpen, X, ImageIcon, ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,6 +35,7 @@ export default function ProductsPage() {
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   useEffect(() => {
     setPageInput(page.toString());
@@ -91,6 +92,7 @@ export default function ProductsPage() {
       setProducts(prev => prev.filter(p => p.id !== id));
       setTotalItems(prev => prev - 1);
       toast.success("Produto removido com sucesso!");
+      fetchProducts(); // Refresh to keep pagination/sorting correct
     } catch {
       toast.error("Erro ao remover produto.");
     }
@@ -102,8 +104,12 @@ export default function ProductsPage() {
     setIsSaving(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await apiFetch(`/api/products/${editingProduct.id}`, {
-        method: "PUT",
+      const isNew = !editingProduct.id || editingProduct.id <= 0;
+      const method = isNew ? "POST" : "PUT";
+      const url = isNew ? "/api/products" : `/api/products/${editingProduct.id}`;
+      
+      const res = await apiFetch(url, {
+        method,
         headers: { 
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}` 
@@ -112,15 +118,63 @@ export default function ProductsPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setProducts(prev => prev.map(p => p.id === data.product.id ? data.product : p));
+        if (isNew) {
+          setProducts(prev => [data.product, ...prev]);
+          setTotalItems(prev => prev + 1);
+        } else {
+          setProducts(prev => prev.map(p => p.id === data.product.id ? data.product : p));
+        }
         setEditingProduct(null);
-        toast.success("Produto atualizado com sucesso!");
+        toast.success(isNew ? "Produto cadastrado com sucesso!" : "Produto atualizado com sucesso!");
+        fetchProducts(); // Always refresh to ensure consistency with backend
       } else {
-        toast.error("Erro ao salvar o produto.");
+        const err = await res.json();
+        toast.error(err.error || "Erro ao salvar o produto.");
       }
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Certeza que deseja remover ${selectedIds.length} produtos?`)) return;
+    
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await apiFetch("/api/products/bulk-delete", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      if (res.ok) {
+        setProducts(prev => prev.filter(p => !selectedIds.includes(p.id)));
+        setTotalItems(prev => prev - selectedIds.length);
+        setSelectedIds([]);
+        toast.success("Produtos removidos com sucesso!");
+        fetchProducts(); // Refresh to sync with backend after bulk deletion
+      } else {
+        toast.error("Erro ao remover produtos.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === products.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(products.map(p => p.id));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   return (
@@ -132,15 +186,31 @@ export default function ProductsPage() {
             {totalItems} produtos registrados.
           </p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
-            type="search"
-            placeholder="Buscar por ID ou Nome..."
-            className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          {selectedIds.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isSaving} className="animate-in fade-in zoom-in-95 duration-200">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir {selectedIds.length} {selectedIds.length === 1 ? "selecionado" : "selecionados"}
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setEditingProduct({ id: 0, externalId: "", title: "", description: "", price: "", imageLink: "", link: "", brand: "", availability: "in stock", condition: "new", createdAt: "" })}>
+            <PackageOpen className="w-4 h-4 mr-2" />
+            Novo Produto
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fetchProducts()} disabled={loading}>
+            <RotateCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+            Atualizar
+          </Button>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="search"
+              placeholder="Buscar por ID ou Nome..."
+              className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
@@ -169,6 +239,14 @@ export default function ProductsPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur border-b border-border shadow-sm">
                   <tr>
+                    <th className="px-4 py-3 w-10">
+                      <input 
+                        type="checkbox" 
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" 
+                        checked={products.length > 0 && selectedIds.length === products.length}
+                        onChange={toggleSelectAll}
+                      />
+                    </th>
                     <th className="px-4 py-3 font-semibold text-left text-muted-foreground w-16">Img</th>
                     <th className="px-4 py-3 font-semibold text-left text-muted-foreground">Produto</th>
                     <th className="px-4 py-3 font-semibold text-left text-muted-foreground">Preço</th>
@@ -179,7 +257,15 @@ export default function ProductsPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {products.map(p => (
-                    <tr key={p.id} className="hover:bg-muted/30 transition-colors group">
+                    <tr key={p.id} className={cn("hover:bg-muted/30 transition-colors group", selectedIds.includes(p.id) && "bg-primary/5")}>
+                      <td className="px-4 py-3">
+                        <input 
+                          type="checkbox" 
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" 
+                          checked={selectedIds.includes(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         {p.imageLink ? (
                           <div className="w-10 h-10 rounded overflow-hidden border border-border bg-muted flex items-center justify-center">
@@ -297,10 +383,10 @@ export default function ProductsPage() {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6" onClick={() => setEditingProduct(null)}>
           <Card className="w-full max-w-lg shadow-xl shadow-black/10 animate-in zoom-in-95 duration-200" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <form onSubmit={handleSave}>
-              <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between">
+              <CardHeader className="flex-row items-center justify-between pb-0">
                 <div>
-                  <CardTitle className="text-lg">Editar Produto</CardTitle>
-                  <CardDescription className="font-mono mt-1">ID: {editingProduct.externalId}</CardDescription>
+                  <CardTitle className="text-lg">{editingProduct.id > 0 ? "Editar Produto" : "Cadastrar Novo Produto"}</CardTitle>
+                  {editingProduct.id > 0 && <CardDescription className="font-mono mt-1">ID: {editingProduct.externalId}</CardDescription>}
                 </div>
                 <Button variant="ghost" size="icon" className="-mr-2 -mt-4 text-muted-foreground" type="button" onClick={() => setEditingProduct(null)}>
                   <X className="w-5 h-5" />
@@ -314,6 +400,15 @@ export default function ProductsPage() {
                     value={editingProduct.title || ""}
                     onChange={e => setEditingProduct({...editingProduct, title: e.target.value})}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Link do Produto (URL)</label>
+                  <input
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={editingProduct.link || ""}
+                    onChange={e => setEditingProduct({...editingProduct, link: e.target.value})}
+                    placeholder="https://sualoja.com/produtos/..."
                   />
                 </div>
                 <div className="space-y-2">
@@ -355,7 +450,7 @@ export default function ProductsPage() {
                 <Button variant="outline" type="button" onClick={() => setEditingProduct(null)} disabled={isSaving}>Cancelar</Button>
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  {isSaving ? "Salvando..." : "Salvar Alterações"}
+                  {isSaving ? "Salvando..." : (editingProduct.id > 0 ? "Salvar Alterações" : "Cadastrar Produto")}
                 </Button>
               </div>
             </form>
