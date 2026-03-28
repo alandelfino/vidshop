@@ -117,7 +117,8 @@ export async function resolveDynamicVideos(storeId: number, conditions: any[], f
         for (const cond of conditions) {
             const field = cond.field;
             const operator = cond.operator;
-            if (!cond.value || (Array.isArray(cond.value) && cond.value.length === 0)) continue;
+            const isUrlOperator = operator === "url_equals_page_url" || operator === "url_contains_page_url";
+            if (!isUrlOperator && (!cond.value || (Array.isArray(cond.value) && cond.value.length === 0))) continue;
             
             if (field === "title") {
                 const title = video.title.toLowerCase();

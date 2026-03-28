@@ -143,7 +143,7 @@ var init_ffmpeg = __esm({
 // server/index.ts
 import "express-async-errors";
 import dotenv3 from "dotenv";
-import express2 from "express";
+import express3 from "express";
 import cors from "cors";
 import { createServer } from "http";
 
@@ -179,6 +179,7 @@ async function setupVite(app2, server2) {
 }
 
 // server/routes.ts
+import express2 from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { eq as eq3, desc, ilike, or, sql as sql2, inArray, and } from "drizzle-orm";
@@ -296,6 +297,7 @@ var shoppableVideos = pgTable("shoppable_videos", {
   autoThumbnails: jsonb("auto_thumbnails").$type(),
   title: text("title").notNull(),
   description: text("description"),
+  tags: jsonb("tags").$type().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 var videoProducts = pgTable("video_products", {
@@ -313,8 +315,21 @@ var videoCarousels = pgTable("video_carousels", {
   name: text("name").notNull(),
   title: text("title"),
   subtitle: text("subtitle"),
-  titleColor: text("title_color").notNull().default("#000000"),
-  subtitleColor: text("subtitle_color").notNull().default("#666666"),
+  titleColor: text("title_color").default("#000000"),
+  subtitleColor: text("subtitle_color").default("#666666"),
+  // Integration & Conditions
+  integrationMode: text("integration_mode").notNull().default("code"),
+  // code, selector
+  selector: text("selector"),
+  insertionMethod: text("insertion_method").default("after"),
+  // before, after, prepend, append
+  conditions: jsonb("conditions").default([]),
+  // Array of { data: string, operator: string, value: string }
+  // Dynamic Video Selection
+  videoSelectionType: text("video_selection_type").notNull().default("manual"),
+  // manual, dynamic
+  dynamicVideoConditions: jsonb("dynamic_video_conditions").default([]),
+  // Array of video conditions
   layout: text("layout").notNull().default("3d-card"),
   showProducts: boolean("show_products").notNull().default(true),
   previewTime: integer("preview_time").notNull().default(3),
@@ -359,7 +374,20 @@ var videoStories = pgTable("video_stories", {
   // Customization
   shape: text("shape").notNull().default("round"),
   // round, rect-9-16, square-9-16
-  borderGradient: text("border_gradient").notNull().default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
+  borderGradient: text("border_gradient").default("linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"),
+  // Integration & Conditions
+  integrationMode: text("integration_mode").notNull().default("code"),
+  // code, selector
+  selector: text("selector"),
+  insertionMethod: text("insertion_method").default("after"),
+  // before, after, prepend, append
+  conditions: jsonb("conditions").default([]),
+  // Array of { data: string, operator: string, value: string }
+  // Dynamic Video Selection
+  videoSelectionType: text("video_selection_type").notNull().default("manual"),
+  // manual, dynamic
+  dynamicVideoConditions: jsonb("dynamic_video_conditions").default([]),
+  // Array of video conditions
   borderEnabled: boolean("border_enabled").notNull().default(true),
   showProducts: boolean("show_products").notNull().default(true),
   bubbleWidth: text("bubble_width").notNull().default("80px"),
@@ -630,1059 +658,6 @@ async function processQueue() {
 import multer2 from "multer";
 import { v4 as uuidv43 } from "uuid";
 
-// server/embed/styles.ts
-var embedStyles = function injectStyles() {
-  if (document.getElementById("vidshop-embed-css"))
-    return;
-  var link = document.createElement("link");
-  link.id = "vidshop-embed-css";
-  link.rel = "stylesheet";
-  link.href = API_ORIGIN + "/embed/vidshop.css";
-  document.head.appendChild(link);
-};
-
-// server/embed/layout-3d-card.ts
-var layout3DCard = function build3DCard(el, data) {
-  var originalVideos = data.videos || [];
-  if (!originalVideos.length)
-    return;
-  var videos = [];
-  if (originalVideos.length < 6 && originalVideos.length > 0) {
-    var i = 0;
-    while (videos.length < 6) {
-      videos.push(originalVideos[i % originalVideos.length]);
-      i++;
-    }
-  } else {
-    videos = originalVideos;
-  }
-  el.classList.add("fashion-reels-carousel");
-  var autoplayMs = data.carousel.previewTime === 0 ? 0 : (data.carousel.previewTime || 6) * 1e3;
-  el.setAttribute("data-autoplay", String(autoplayMs));
-  var headerHtml = "";
-  if (data.carousel.title || data.carousel.subtitle) {
-    headerHtml += '<div style="text-align: center; margin-bottom: 24px; padding: 0 16px; width: 100%;">';
-    if (data.carousel.title) {
-      headerHtml += '<h2 style="margin: 0 0 8px 0; font-family: inherit; font-size: 28px; font-weight: 700; color: ' + escAttr(data.carousel.titleColor || "#000000") + ';">' + escAttr(data.carousel.title) + "</h2>";
-    }
-    if (data.carousel.subtitle) {
-      headerHtml += '<p style="margin: 0; font-family: inherit; font-size: 16px; color: ' + escAttr(data.carousel.subtitleColor || "#666666") + ';">' + escAttr(data.carousel.subtitle) + "</p>";
-    }
-    headerHtml += "</div>";
-  }
-  var html = headerHtml + '<div class="frc-carousel">';
-  var bw = data.carousel.cardBorderWidth ? data.carousel.cardBorderWidth + "px" : "0px";
-  var bc = data.carousel.cardBorderColor || "#000000";
-  var br = data.carousel.cardBorderRadius != null ? data.carousel.cardBorderRadius + "px" : "12px";
-  var slideStyle = "border-radius: " + br + "; border: " + bw + " solid " + escAttr(bc) + "; overflow: hidden;";
-  videos.forEach(function(v) {
-    html += '<div class="frc-slide" style="' + slideStyle + '">';
-    var loopAttr = data.carousel.previewTime === 0 ? "" : "loop";
-    html += "<video muted playsinline " + loopAttr + ' preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : "") + '">';
-    html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
-    html += "</video>";
-    if (data.carousel.showProducts && v.productsList && v.productsList.length > 0) {
-      v.productsList.forEach(function(p) {
-        var priceHtml = p.price ? '<p class="frc-product-price">' + escAttr(p.price) + "</p>" : "";
-        var imgHtml = p.imageLink ? '<img class="frc-product-img" src="' + escAttr(p.imageLink) + '" alt=""/>' : '<div class="frc-product-img" style="background: #333;"></div>';
-        var cartIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>';
-        var link = p.link ? escAttr(p.link) : "#";
-        html += '<div class="frc-product-card" data-start="' + p.startTime + '" data-end="' + p.endTime + '">' + imgHtml + '<div class="frc-product-info"><h3 class="frc-product-title">' + escAttr(p.title) + "</h3>" + priceHtml + '</div><a href="' + link + '" target="_blank" class="frc-product-btn" aria-label="Comprar">' + cartIcon + "</a></div>";
-      });
-    }
-    html += "</div>";
-  });
-  html += "</div>";
-  el.innerHTML = html;
-  init3DCardLogic(el);
-  function init3DCardLogic(root) {
-    if (root.dataset.frcInitialized === "true")
-      return;
-    root.dataset.frcInitialized = "true";
-    var slides = Array.from(root.querySelectorAll(".frc-slide"));
-    var videos2 = slides.map(function(slide) {
-      return slide.querySelector("video");
-    });
-    var autoplayRaw = Number(root.dataset.autoplay || 3);
-    if (autoplayRaw === 0)
-      autoplayRaw = 4;
-    var autoplayDelay = autoplayRaw * 1e3;
-    videos2.forEach(function(video, index) {
-      var slide = slides[index];
-      var productCards = Array.from(slide.querySelectorAll(".frc-product-card"));
-      if (!productCards.length)
-        return;
-      video.addEventListener("timeupdate", function() {
-        var ct = video.currentTime;
-        productCards.forEach(function(card) {
-          var start = Number(card.dataset.start);
-          var end = Number(card.dataset.end);
-          if (ct >= start && ct <= end) {
-            if (!card.classList.contains("is-active"))
-              card.classList.add("is-active");
-          } else {
-            if (card.classList.contains("is-active"))
-              card.classList.remove("is-active");
-          }
-        });
-      });
-    });
-    var current = Math.floor(slides.length / 2);
-    var timer = null;
-    var isVisible = false;
-    var isPageVisible = !document.hidden;
-    var lastCurrent = -1;
-    var isManualPause = false;
-    var isViewMode = false;
-    var touchStartX = 0;
-    var touchEndX = 0;
-    function getOffset(index, active, total) {
-      var offset = index - active;
-      if (offset > total / 2)
-        offset -= total;
-      if (offset < -total / 2)
-        offset += total;
-      return offset;
-    }
-    function applyClasses() {
-      var total = slides.length;
-      slides.forEach(function(slide, index) {
-        slide.className = "frc-slide";
-        var offset = getOffset(index, current, total);
-        if (offset === 0)
-          slide.classList.add("is-center");
-        else if (offset === -1)
-          slide.classList.add("is-left-1");
-        else if (offset === 1)
-          slide.classList.add("is-right-1");
-        else if (offset === -2)
-          slide.classList.add("is-left-2");
-        else if (offset === 2)
-          slide.classList.add("is-right-2");
-        else if (offset < 0)
-          slide.classList.add("is-hidden-left");
-        else
-          slide.classList.add("is-hidden-right");
-      });
-    }
-    function pauseAllVideos() {
-      videos2.forEach(function(video) {
-        try {
-          video.pause();
-        } catch (e) {
-        }
-      });
-    }
-    function playCurrentVideo() {
-      if (isManualPause) {
-        pauseAllVideos();
-        return;
-      }
-      videos2.forEach(function(video, index) {
-        if (index === current && isVisible && isPageVisible) {
-          if (lastCurrent !== current) {
-            try {
-              video.currentTime = 0;
-            } catch (e) {
-            }
-          }
-          if (!isViewMode) {
-            video.muted = true;
-          } else {
-            video.muted = false;
-          }
-          var slide = slides[index];
-          var muteBtn = slide.querySelector(".vidshop-mute-btn");
-          if (muteBtn) {
-            muteBtn.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
-            muteBtn.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
-          }
-          var playBtn = slide.querySelector(".vidshop-play-btn");
-          if (playBtn) {
-            playBtn.querySelector(".icon-pause").style.display = !video.paused ? "block" : "none";
-            playBtn.querySelector(".icon-play").style.display = !video.paused ? "none" : "block";
-          }
-          var playPromise = video.play();
-          if (playPromise && typeof playPromise.catch === "function") {
-            playPromise.catch(function() {
-            });
-          }
-        } else {
-          try {
-            video.pause();
-          } catch (e) {
-          }
-        }
-      });
-      lastCurrent = current;
-    }
-    function update() {
-      isManualPause = false;
-      applyClasses();
-      playCurrentVideo();
-    }
-    function next() {
-      current = (current + 1) % slides.length;
-      update();
-    }
-    function prev() {
-      current = (current - 1 + slides.length) % slides.length;
-      update();
-    }
-    function startTimer() {
-      if (timer || !isVisible || !isPageVisible || isManualPause || isViewMode)
-        return;
-      if (autoplayDelay > 0) {
-        timer = window.setInterval(next, Math.max(autoplayDelay, 2e3));
-      }
-    }
-    function stopTimer() {
-      if (!timer)
-        return;
-      window.clearInterval(timer);
-      timer = null;
-    }
-    function resetTimer() {
-      stopTimer();
-      startTimer();
-    }
-    if (window.IntersectionObserver) {
-      var observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          isVisible = entry.isIntersecting && entry.intersectionRatio > 0.2;
-          if (isVisible) {
-            if (!isManualPause) {
-              update();
-              startTimer();
-            }
-          } else {
-            stopTimer();
-            pauseAllVideos();
-          }
-        });
-      }, { threshold: [0, 0.2, 0.6] });
-      observer.observe(root);
-    } else {
-      isVisible = true;
-    }
-    document.addEventListener("visibilitychange", function() {
-      isPageVisible = !document.hidden;
-      if (isPageVisible && isVisible) {
-        if (!isManualPause) {
-          playCurrentVideo();
-          startTimer();
-        }
-      } else {
-        stopTimer();
-        pauseAllVideos();
-      }
-    });
-    var touchStartY = 0;
-    var isSwipingHorizontal = null;
-    root.addEventListener("touchstart", function(e) {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
-      isSwipingHorizontal = null;
-      root.dataset.isDragging = "true";
-    }, { passive: true });
-    root.addEventListener("touchmove", function(e) {
-      if (!root.dataset.isDragging)
-        return;
-      var touchCurrentX = e.changedTouches[0].screenX;
-      var touchCurrentY = e.changedTouches[0].screenY;
-      var dx = Math.abs(touchCurrentX - touchStartX);
-      var dy = Math.abs(touchCurrentY - touchStartY);
-      if (isSwipingHorizontal === null) {
-        if (dx > dy && dx > 5)
-          isSwipingHorizontal = true;
-        else if (dy > dx && dy > 5)
-          isSwipingHorizontal = false;
-      }
-      if (isSwipingHorizontal) {
-        if (e.cancelable)
-          e.preventDefault();
-      }
-    }, { passive: false });
-    root.addEventListener("touchend", function(e) {
-      root.dataset.isDragging = "";
-      if (isSwipingHorizontal === false)
-        return;
-      touchEndX = e.changedTouches[0].screenX;
-      var swipeThreshold = 40;
-      if (touchEndX < touchStartX - swipeThreshold) {
-        next();
-        resetTimer();
-      } else if (touchEndX > touchStartX + swipeThreshold) {
-        prev();
-        resetTimer();
-      }
-    }, { passive: true });
-    var isDragging = false;
-    var mouseStart = 0;
-    root.addEventListener("mousedown", function(e) {
-      isDragging = true;
-      mouseStart = e.screenX;
-    });
-    root.addEventListener("mouseup", function(e) {
-      if (!isDragging)
-        return;
-      isDragging = false;
-      var touchEnd = e.screenX;
-      var swipeThreshold = 40;
-      if (touchEnd < mouseStart - swipeThreshold) {
-        next();
-        resetTimer();
-      } else if (touchEnd > mouseStart + swipeThreshold) {
-        prev();
-        resetTimer();
-      }
-      root.dataset.lastDragDist = Math.abs(touchEnd - mouseStart);
-      setTimeout(function() {
-        root.dataset.lastDragDist = "0";
-      }, 50);
-    });
-    root.addEventListener("mouseleave", function() {
-      isDragging = false;
-    });
-    videos2.forEach(function(video, index) {
-      video.muted = true;
-      video.addEventListener("click", function(e) {
-        e.preventDefault();
-        if (e.target.closest(".frc-product-card") || e.target.closest(".vidshop-controls"))
-          return;
-        if (index !== current) {
-          current = index;
-          update();
-          return;
-        }
-        if (!isViewMode) {
-          isViewMode = true;
-          video.className = video.className.replace("is-preview", "") + " is-active";
-          slides[index].classList.add("is-view-mode");
-          stopTimer();
-          video.muted = false;
-          video.currentTime = 0;
-          var p = video.play();
-          if (p && p.catch)
-            p.catch(function() {
-            });
-          isManualPause = false;
-        } else {
-          isViewMode = false;
-          slides[index].classList.remove("is-view-mode");
-          video.muted = true;
-          startTimer();
-        }
-      });
-      video.addEventListener("ended", function() {
-        if (isViewMode) {
-          if (!isManualPause)
-            next();
-        } else {
-          video.currentTime = 0;
-          var p = video.play();
-          if (p && p.catch)
-            p.catch(function() {
-            });
-        }
-      });
-      video.addEventListener("play", function() {
-        var slide = slides[index];
-        var playBtn = slide.querySelector(".vidshop-play-btn");
-        if (playBtn) {
-          playBtn.querySelector(".icon-pause").style.display = "block";
-          playBtn.querySelector(".icon-play").style.display = "none";
-        }
-      });
-      video.addEventListener("pause", function() {
-        var slide = slides[index];
-        var playBtn = slide.querySelector(".vidshop-play-btn");
-        if (playBtn) {
-          playBtn.querySelector(".icon-pause").style.display = "none";
-          playBtn.querySelector(".icon-play").style.display = "block";
-        }
-      });
-      video.addEventListener("volumechange", function() {
-        var slide = slides[index];
-        var muteBtn = slide.querySelector(".vidshop-mute-btn");
-        if (muteBtn) {
-          muteBtn.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
-          muteBtn.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
-        }
-      });
-    });
-    slides.forEach(function(slide, index) {
-      var controls = document.createElement("div");
-      controls.className = "vidshop-controls";
-      controls.innerHTML = [
-        '<button class="vidshop-btn vidshop-mute-btn" aria-label="Mute/Unmute">',
-        '    <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>',
-        '    <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>',
-        "</button>",
-        '<button class="vidshop-btn vidshop-play-btn" aria-label="Play/Pause">',
-        '    <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
-        '    <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
-        "</button>"
-      ].join("");
-      slide.appendChild(controls);
-      var video = videos2[index];
-      var muteBtn = controls.querySelector(".vidshop-mute-btn");
-      var playBtn = controls.querySelector(".vidshop-play-btn");
-      muteBtn.addEventListener("click", function(e) {
-        e.stopPropagation();
-        var setMuted = !video.muted;
-        videos2.forEach(function(v) {
-          v.muted = setMuted;
-        });
-      });
-      playBtn.addEventListener("click", function(e) {
-        e.stopPropagation();
-        if (video.paused) {
-          isManualPause = false;
-          video.play();
-          startTimer();
-        } else {
-          isManualPause = true;
-          video.pause();
-          stopTimer();
-        }
-      });
-      slide.addEventListener("click", function(e) {
-        if (Number(root.dataset.lastDragDist) > 40)
-          return;
-        if (e.target.closest(".vidshop-controls") || e.target.closest(".frc-product-card"))
-          return;
-        if (index === current) {
-          if (!isViewMode) {
-            isViewMode = true;
-            stopTimer();
-            video.muted = false;
-            video.currentTime = 0;
-            video.play();
-            isManualPause = false;
-            slides[index].classList.add("is-view-mode");
-          } else {
-            isViewMode = false;
-            video.muted = true;
-            startTimer();
-            slides[index].classList.remove("is-view-mode");
-          }
-        } else {
-          current = index;
-          update();
-          resetTimer();
-        }
-      });
-    });
-    update();
-  }
-};
-
-// server/embed/layout-slider.ts
-var layoutSlider = function buildSlider(el, data) {
-  var videos = data.videos || [];
-  if (!videos.length)
-    return;
-  if (videos.length < 6) {
-    var original = videos.slice();
-    while (videos.length < 6) {
-      videos = videos.concat(original);
-    }
-  }
-  var previewTime = data.carousel.previewTime ?? 4;
-  var previewMs = previewTime === 0 ? 0 : previewTime * 1e3;
-  var uid = "vslider-" + Math.floor(Math.random() * 1e6);
-  el.classList.add("vidshop-slider-carousel", uid);
-  el.setAttribute("data-preview-time", String(previewMs));
-  var headerHtml = "";
-  if (data.carousel.title || data.carousel.subtitle) {
-    headerHtml += '<div style="text-align: center; margin-bottom: 24px; padding: 0 16px; width: 100%;">';
-    if (data.carousel.title) {
-      headerHtml += '<h2 style="margin: 0 0 8px 0; font-family: inherit; font-size: 28px; font-weight: 700; color: ' + escAttr(data.carousel.titleColor || "#000000") + ';">' + escAttr(data.carousel.title) + "</h2>";
-    }
-    if (data.carousel.subtitle) {
-      headerHtml += '<p style="margin: 0; font-family: inherit; font-size: 16px; color: ' + escAttr(data.carousel.subtitleColor || "#666666") + ';">' + escAttr(data.carousel.subtitle) + "</p>";
-    }
-    headerHtml += "</div>";
-  }
-  var playIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
-  var html = headerHtml + '<div class="vidshop-slider-track">';
-  var bw = data.carousel.cardBorderWidth ? data.carousel.cardBorderWidth + "px" : "0px";
-  var bc = data.carousel.cardBorderColor || "#000000";
-  var br = data.carousel.cardBorderRadius != null ? data.carousel.cardBorderRadius + "px" : "12px";
-  var slideStyle = "border-radius: " + br + "; border: " + bw + " solid " + escAttr(bc) + "; overflow: hidden;";
-  videos.forEach(function(v) {
-    html += '<div class="vidshop-slider-slide" style="' + slideStyle + '">';
-    var loopAttr = previewTime === 0 ? "" : "loop";
-    html += "<video " + loopAttr + ' playsinline preload="metadata" poster="' + (v.thumbnailUrl ? escAttr(v.thumbnailUrl) : "") + '">';
-    html += '<source src="' + escAttr(v.mediaUrl) + '" type="video/mp4">';
-    html += "</video>";
-    html += '<div class="vidshop-controls">';
-    html += '  <button class="vidshop-btn vidshop-mute-btn" aria-label="Mute/Unmute">';
-    html += '    <svg class="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
-    html += '    <svg class="icon-unmute" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
-    html += "  </button>";
-    html += '  <button class="vidshop-btn vidshop-play-btn" aria-label="Play/Pause">';
-    html += '    <svg class="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
-    html += '    <svg class="icon-play" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
-    html += "  </button>";
-    html += "</div>";
-    html += '<div class="vidshop-slider-play-overlay">' + playIcon + "</div>";
-    if (data.carousel.showProducts && v.productsList && v.productsList.length > 0) {
-      v.productsList.forEach(function(p) {
-        var priceHtml = p.price ? '<p class="frc-product-price">' + escAttr(p.price) + "</p>" : "";
-        var imgHtml = p.imageLink ? '<img class="frc-product-img" src="' + escAttr(p.imageLink) + '" alt=""/>' : '<div class="frc-product-img" style="background: #333;"></div>';
-        var cartIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>';
-        var link = p.link ? escAttr(p.link) : "#";
-        html += '<div class="frc-product-card" data-start="' + p.startTime + '" data-end="' + p.endTime + '">' + imgHtml + '<div class="frc-product-info"><h3 class="frc-product-title">' + escAttr(p.title) + "</h3>" + priceHtml + '</div><a href="' + link + '" target="_blank" class="frc-product-btn" aria-label="Comprar">' + cartIcon + "</a></div>";
-      });
-    }
-    html += "</div>";
-  });
-  html += "</div>";
-  el.innerHTML = html;
-  initSliderLogic(el);
-  function initSliderLogic(root) {
-    if (root.dataset.vsSliderInitialized === "true")
-      return;
-    root.dataset.vsSliderInitialized = "true";
-    var slides = Array.from(root.querySelectorAll(".vidshop-slider-slide"));
-    var videos2 = slides.map(function(s) {
-      return s.querySelector("video");
-    });
-    var track = root.querySelector(".vidshop-slider-track");
-    var previewTime2 = Number(root.dataset.previewTime || 3e3);
-    var isManualPause = false;
-    var isViewMode = false;
-    var currentPreview = -1;
-    var previewTimer = null;
-    var observer = null;
-    var isVisible = false;
-    function updateSlider() {
-      videos2.forEach(function(video, index) {
-        var slide = slides[index];
-        if (index === currentPreview) {
-          slide.classList.add("is-playing");
-          if (isViewMode) {
-            slide.classList.add("is-view-mode");
-            video.muted = false;
-          } else {
-            slide.classList.remove("is-view-mode");
-            video.muted = true;
-          }
-          var muteBtn = slide.querySelector(".vidshop-mute-btn");
-          if (muteBtn) {
-            muteBtn.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
-            muteBtn.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
-          }
-          var playBtn = slide.querySelector(".vidshop-play-btn");
-          if (playBtn) {
-            playBtn.querySelector(".icon-pause").style.display = !video.paused ? "block" : "none";
-            playBtn.querySelector(".icon-play").style.display = !video.paused ? "none" : "block";
-          }
-          if (video.paused && isVisible && !isManualPause) {
-            var p = video.play();
-            if (p && p.catch)
-              p.catch(function() {
-              });
-          }
-        } else {
-          video.pause();
-          slide.classList.remove("is-playing", "is-view-mode");
-        }
-      });
-    }
-    function playPreview(index) {
-      if (isManualPause)
-        return;
-      currentPreview = index;
-      if (!isViewMode) {
-        videos2[index].currentTime = 0;
-      }
-      updateSlider();
-      clearTimeout(previewTimer);
-      if (previewTime2 > 0 && !isViewMode) {
-        previewTimer = setTimeout(function() {
-          if (!isViewMode && !isManualPause)
-            advanceToNext(index);
-        }, previewTime2);
-      }
-    }
-    function advanceToNext(fromIndex) {
-      if (isManualPause)
-        return;
-      var nextIndex = (fromIndex + 1) % videos2.length;
-      var nextSlide = slides[nextIndex];
-      var maxScroll = track.scrollWidth - track.clientWidth;
-      var targetScroll = nextSlide.offsetLeft - track.offsetLeft;
-      if (nextIndex === 0) {
-        track.scrollTo({ left: 0, behavior: "smooth" });
-      } else {
-        var boundedScroll = Math.min(targetScroll, maxScroll);
-        track.scrollTo({ left: boundedScroll, behavior: "smooth" });
-      }
-      setTimeout(function() {
-        if (isViewMode) {
-          currentPreview = nextIndex;
-          videos2[nextIndex].currentTime = 0;
-          updateSlider();
-        } else {
-          playPreview(nextIndex);
-        }
-      }, 400);
-    }
-    if (window.IntersectionObserver) {
-      observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting) {
-            isVisible = true;
-            if (!isManualPause && currentPreview === -1) {
-              playPreview(0);
-            } else {
-              updateSlider();
-            }
-          } else {
-            isVisible = false;
-            clearTimeout(previewTimer);
-            videos2.forEach(function(v) {
-              v.pause();
-            });
-          }
-        });
-      }, { threshold: 0.3 });
-      observer.observe(root);
-    } else {
-      isVisible = true;
-      setTimeout(function() {
-        playPreview(0);
-      }, 500);
-    }
-    videos2.forEach(function(video, index) {
-      var slide = slides[index];
-      var productCards = Array.from(slide.querySelectorAll(".frc-product-card"));
-      video.addEventListener("ended", function() {
-        if (index === currentPreview && !isManualPause) {
-          advanceToNext(index);
-        }
-      });
-      video.addEventListener("play", function() {
-        var playBtn2 = slide.querySelector(".vidshop-play-btn");
-        if (playBtn2) {
-          playBtn2.querySelector(".icon-pause").style.display = "block";
-          playBtn2.querySelector(".icon-play").style.display = "none";
-        }
-      });
-      video.addEventListener("pause", function() {
-        var playBtn2 = slide.querySelector(".vidshop-play-btn");
-        if (playBtn2) {
-          playBtn2.querySelector(".icon-pause").style.display = "none";
-          playBtn2.querySelector(".icon-play").style.display = "block";
-        }
-      });
-      video.addEventListener("volumechange", function() {
-        var muteBtn2 = slide.querySelector(".vidshop-mute-btn");
-        if (muteBtn2) {
-          muteBtn2.querySelector(".icon-mute").style.display = video.muted ? "block" : "none";
-          muteBtn2.querySelector(".icon-unmute").style.display = video.muted ? "none" : "block";
-        }
-      });
-      var muteBtn = slide.querySelector(".vidshop-mute-btn");
-      var playBtn = slide.querySelector(".vidshop-play-btn");
-      muteBtn?.addEventListener("click", function(e) {
-        e.stopPropagation();
-        video.muted = !video.muted;
-      });
-      playBtn?.addEventListener("click", function(e) {
-        e.stopPropagation();
-        if (video.paused) {
-          isManualPause = false;
-          video.play();
-        } else {
-          isManualPause = true;
-          video.pause();
-          clearTimeout(previewTimer);
-        }
-      });
-      if (productCards.length > 0) {
-        video.addEventListener("timeupdate", function() {
-          var ct = video.currentTime;
-          productCards.forEach(function(card) {
-            var start = Number(card.dataset.start);
-            var end = Number(card.dataset.end);
-            if (ct >= start && ct <= end) {
-              if (!card.classList.contains("is-active"))
-                card.classList.add("is-active");
-            } else {
-              if (card.classList.contains("is-active"))
-                card.classList.remove("is-active");
-            }
-          });
-        });
-      }
-      slide.addEventListener("click", function(e) {
-        if (e.target.closest(".frc-product-card") || e.target.closest(".vidshop-controls"))
-          return;
-        if (!isViewMode) {
-          isViewMode = true;
-          currentPreview = index;
-          isManualPause = false;
-          clearTimeout(previewTimer);
-          video.currentTime = 0;
-          updateSlider();
-        } else {
-          if (index === currentPreview) {
-            isViewMode = false;
-            isManualPause = false;
-            playPreview(index);
-          } else {
-            currentPreview = index;
-            isManualPause = false;
-            video.currentTime = 0;
-            updateSlider();
-          }
-        }
-      });
-    });
-  }
-};
-
-// server/embed/layout-stories.ts
-var layoutStories = `
-  function buildStories(el, data) {
-    var story = data;
-    var videos = data.videos || [];
-    if (!videos.length) return;
-
-    var bubbleWidth = story.bubbleWidth || '80px';
-    var bubbleHeight = story.bubbleHeight || '80px';
-    var borderRadius = story.borderRadius !== undefined ? story.borderRadius + 'px' : '50%';
-    var innerRadius = story.borderRadius !== undefined ? Math.max(0, story.borderRadius - 2) + 'px' : '50%';
-
-    var containerStyle = [
-      '--vstory-width: ' + bubbleWidth,
-      '--vstory-height: ' + bubbleHeight,
-      '--vstory-radius: ' + borderRadius,
-      '--vstory-inner-radius: ' + innerRadius
-    ].join('; ');
-
-    var html = '<div class="vidshop-stories-container" style="' + containerStyle + '">';
-    videos.forEach(function(v, i) {
-      var shapeClass = 'vidshop-story-shape-' + (story.shape || 'round');
-      var borderStyle = story.borderEnabled ? 'background: ' + story.borderGradient : '';
-      var posterAttr = v.thumbnailUrl ? ' poster="' + escAttr(v.thumbnailUrl) + '"' : '';
-      
-      html += '<div class="vidshop-story-item" data-index="' + i + '">';
-      html += '  <div class="vidshop-story-bubble" style="' + borderStyle + '">';
-      html += '    <div class="vidshop-story-inner">';
-      html += '      <video src="' + escAttr(v.mediaUrl) + '"' + posterAttr + ' muted playsinline preload="metadata"></video>';
-      html += '    </div>';
-      html += '  </div>';
-      html += '  <div class="vidshop-story-label">' + escAttr(v.title) + '</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-
-    el.innerHTML = html;
-
-    // Fullscreen Player Implementation
-    var activeIdx = 0;
-    var modal = null;
-
-    el.querySelectorAll('.vidshop-story-item').forEach(function(item) {
-      item.onclick = function() {
-        activeIdx = parseInt(this.getAttribute('data-index'));
-        openPlayer();
-      };
-    });
-
-    function openPlayer() {
-      if (modal) return;
-      
-      modal = document.createElement('div');
-      modal.className = 'vidshop-story-player-overlay';
-      modal.innerHTML = \`
-        <div class="vidshop-story-player-header">
-           <div class="vidshop-story-progress-container"></div>
-           <div class="vidshop-story-user">
-              \${videos[activeIdx].thumbnailUrl ? '<img src="' + videos[activeIdx].thumbnailUrl + '" class="vidshop-story-user-thumb">' : '<div class="vidshop-story-user-thumb" style="background:#333"></div>'}
-              <span class="vidshop-story-user-name">\${videos[activeIdx].title}</span>
-           </div>
-           <button class="vidshop-story-close">&times;</button>
-        </div>
-        
-        <div class="vidshop-story-player-wrapper">
-          <div class="vidshop-story-player-content">
-             <video id="vidshop-story-video" src="\${videos[activeIdx].mediaUrl}" playsinline autoplay></video>
-             <div class="vidshop-story-nav vidshop-story-nav-prev"></div>
-             <div class="vidshop-story-nav vidshop-story-nav-next"></div>
-             <div class="vidshop-story-products-container"></div>
-          </div>
-        </div>
-      \`;
-      
-      document.body.appendChild(modal);
-      document.body.style.overflow = 'hidden';
-
-      var progressContainer = modal.querySelector('.vidshop-story-progress-container');
-      for (var i = 0; i < videos.length; i++) {
-        var bg = document.createElement('div');
-        bg.className = 'vidshop-story-progress-bg';
-        bg.innerHTML = '<div class="vidshop-story-progress-fill"></div>';
-        progressContainer.appendChild(bg);
-      }
-
-      var video = modal.querySelector('#vidshop-story-video');
-      var progressFills = modal.querySelectorAll('.vidshop-story-progress-fill');
-      var productsContainer = modal.querySelector('.vidshop-story-products-container');
-
-      // Add close logic
-      modal.querySelector('.vidshop-story-close').onclick = closePlayer;
-
-      // Nav logic
-      modal.querySelector('.vidshop-story-nav-prev').onclick = function() {
-        if (activeIdx > 0) {
-          activeIdx--;
-          updatePlayer();
-        } else {
-          closePlayer();
-        }
-      };
-      
-      modal.querySelector('.vidshop-story-nav-next').onclick = function() {
-        if (activeIdx < videos.length - 1) {
-          activeIdx++;
-          updatePlayer();
-        } else {
-          closePlayer();
-        }
-      };
-
-      video.onended = function() {
-        if (activeIdx < videos.length - 1) {
-           activeIdx++;
-           updatePlayer();
-        } else {
-           closePlayer();
-        }
-      };
-
-      var animationId = null;
-      function startProgressLoop() {
-        if (animationId) cancelAnimationFrame(animationId);
-        function loop() {
-           if (!video.paused && video.duration) {
-             var p = (video.currentTime / video.duration) * 100;
-             if (progressFills[activeIdx]) progressFills[activeIdx].style.width = p + '%';
-           }
-           animationId = requestAnimationFrame(loop);
-        }
-        animationId = requestAnimationFrame(loop);
-      }
-
-      video.onplay = startProgressLoop;
-      video.onpause = function() {
-        if (animationId) cancelAnimationFrame(animationId);
-      };
-
-      video.ontimeupdate = function() {
-         if (story.showProducts !== false) {
-           renderProducts(video.currentTime);
-         } else {
-           productsContainer.innerHTML = '';
-         }
-      };
-
-      function updatePlayer() {
-        var v = videos[activeIdx];
-        video.src = v.mediaUrl;
-        video.play();
-        var userThumb = modal.querySelector('.vidshop-story-user-thumb');
-        if (userThumb) {
-          if (v.thumbnailUrl) {
-            userThumb.src = v.thumbnailUrl;
-            userThumb.style.display = 'block';
-          } else {
-            userThumb.style.display = 'none';
-          }
-        }
-        modal.querySelector('.vidshop-story-user-name').innerText = v.title;
-        progressFills.forEach(function(fill, i) {
-          if (i < activeIdx) fill.style.width = '100%';
-          else fill.style.width = '0%';
-        });
-        productsContainer.innerHTML = '';
-        lastActiveIds = "";
-        startProgressLoop();
-      }
-
-      var lastActiveIds = "";
-      function renderProducts(time) {
-        var products = videos[activeIdx].products || [];
-        var activeOnes = products.filter(function(p) {
-          return time >= (p.startTime || 0) && time <= (p.endTime || 9999);
-        });
-
-        var currentIds = activeOnes.map(function(p){ return p.id; }).join(',');
-        if (currentIds === lastActiveIds) return;
-        lastActiveIds = currentIds;
-
-        if (activeOnes.length === 0) {
-          productsContainer.innerHTML = '';
-          return;
-        }
-
-        var html = '';
-        activeOnes.forEach(function(p) {
-          var imgHtml = p.imageLink ? '<img class="vidshop-story-product-img" src="' + p.imageLink + '">' : '<div class="vidshop-story-product-img" style="background:#333"></div>';
-          var cartIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>';
-          
-          html += '<a href="' + p.link + '" target="_blank" class="vidshop-story-product-card">';
-          html += imgHtml;
-          html += '  <div class="vidshop-story-product-info">';
-          html += '    <div class="vidshop-story-product-title">' + p.title + '</div>';
-          html += '    <div class="vidshop-story-product-price">' + (p.price || '') + '</div>';
-          html += '  </div>';
-          html += '  <div class="vidshop-story-product-btn">' + cartIcon + '</div>';
-          html += '</a>';
-        });
-        productsContainer.innerHTML = html;
-      }
-
-      function closePlayer() {
-        if (modal) {
-          modal.remove();
-          modal = null;
-          document.body.style.overflow = '';
-        }
-      }
-    }
-  }
-`;
-
-// server/public-script.ts
-var publicScript = `
-(function() {
-  var API_ORIGIN = "__API_ORIGIN__";
-
-  function escAttr(s) { return String(s).replace(/"/g,"&quot;"); }
-  var __name = function(n, t) { return n; };
-
-${embedStyles}
-
-${layout3DCard}
-
-${layoutSlider}
-
-${layoutStories}
-
-  function applyLayoutStyles(el, item) {
-    if (!item) return;
-    if (item.maxWidth) el.style.maxWidth = item.maxWidth;
-    if (item.marginTop) el.style.marginTop = item.marginTop;
-    if (item.marginRight) el.style.marginRight = item.marginRight;
-    if (item.marginBottom) el.style.marginBottom = item.marginBottom;
-    if (item.marginLeft) el.style.marginLeft = item.marginLeft;
-    if (item.paddingTop) el.style.paddingTop = item.paddingTop;
-    if (item.paddingRight) el.style.paddingRight = item.paddingRight;
-    if (item.paddingBottom) el.style.paddingBottom = item.paddingBottom;
-    if (item.paddingLeft) el.style.paddingLeft = item.paddingLeft;
-    if (item.maxWidth && item.maxWidth !== "100%" && (!item.marginLeft || item.marginLeft === "0px") && (!item.marginRight || item.marginRight === "0px")) {
-      el.style.marginLeft = "auto";
-      el.style.marginRight = "auto";
-    }
-  }
-
-  function injectCarouselSkeleton(el) {
-    el.innerHTML = '<div class="vidshop-skeleton-carousel">' +
-      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-card vidshop-shimmer"></div>' +
-      '</div>';
-  }
-
-  function injectStoriesSkeleton(el) {
-    var item = '<div class="vidshop-skeleton-item">' +
-      '<div class="vidshop-skeleton-circle vidshop-shimmer"></div>' +
-      '<div class="vidshop-skeleton-text vidshop-shimmer"></div>' +
-      '</div>';
-    el.innerHTML = '<div class="vidshop-skeleton-stories">' +
-      item + item + item + item + item + item + item +
-      '</div>';
-  }
-
-  function buildCarousel(el, data) {
-    el.innerHTML = ""; // Clear skeleton
-    el.classList.add("vidshop-fade-in");
-    applyLayoutStyles(el, data.carousel);
-    var layout = data.carousel.layout || "3d-card";
-    if (layout === "3d-card") {
-      build3DCard(el, data);
-    } else if (layout === "slider") {
-      buildSlider(el, data);
-    } else {
-      console.warn("[Vidshop] Modelo de carrossel n\xE3o suportado:", layout);
-    }
-  }
-
-  function init() {
-    injectStyles();
-    
-    // Initialize Carousels
-    var elsCarousels = document.querySelectorAll("[data-vidshop-carousel], [data-onstore-carousel]");
-    elsCarousels.forEach(function(el) {
-      var cid = el.getAttribute("data-vidshop-carousel") || el.getAttribute("data-onstore-carousel");
-      if (!cid || el.dataset.vidshopLoaded) return;
-      el.dataset.vidshopLoaded = "1";
-      
-      injectCarouselSkeleton(el);
-      
-      fetch(API_ORIGIN + "/api/public/carousels/" + cid)
-        .then(function(r) { return r.json(); })
-        .then(function(data) { 
-          if (data.error) throw new Error(data.error);
-          buildCarousel(el, data); 
-        })
-        .catch(function(e) { 
-          el.innerHTML = ""; // Clear on error
-          console.warn("[Vidshop] Erro carrossel #" + cid, e); 
-        });
-    });
-
-    // Initialize Stories
-    var elsStories = document.querySelectorAll("[data-vidshop-story]");
-    elsStories.forEach(function(el) {
-      var sid = el.getAttribute("data-vidshop-story");
-      if (!sid || el.dataset.vidshopLoaded) return;
-      el.dataset.vidshopLoaded = "1";
-
-      injectStoriesSkeleton(el);
-
-      fetch(API_ORIGIN + "/api/public/stories/" + sid)
-        .then(function(r) { return r.json(); })
-        .then(function(data) { 
-          if (data.error) throw new Error(data.error);
-          el.innerHTML = ""; // Clear skeleton
-          el.classList.add("vidshop-fade-in");
-          applyLayoutStyles(el, data);
-          buildStories(el, data); 
-        })
-        .catch(function(e) { 
-          el.innerHTML = ""; // Clear on error
-          console.warn("[Vidshop] Erro story #" + sid, e); 
-        });
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-`;
-
 // server/cloudflare-purge.ts
 async function purgeCloudflareCache(urls) {
   if (!urls.length)
@@ -1829,6 +804,114 @@ function formatPrice(priceStr) {
   }
   return priceStr;
 }
+async function resolveDynamicVideos(storeId, conditions, fetchProducts = true, pageUrl = "") {
+  let productsByVideo = {};
+  const allVideos = await db.select().from(shoppableVideos).where(eq3(shoppableVideos.storeId, storeId)).orderBy(desc(shoppableVideos.createdAt));
+  if (fetchProducts && allVideos.length > 0) {
+    const videoIds = allVideos.map((v) => v.id);
+    const vp = await db.select({
+      videoId: videoProducts.videoId,
+      startTime: videoProducts.startTime,
+      endTime: videoProducts.endTime,
+      product: {
+        id: products.id,
+        title: products.title,
+        price: products.price,
+        imageLink: products.imageLink,
+        link: products.link
+      }
+    }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(inArray(videoProducts.videoId, videoIds)).orderBy(videoProducts.startTime);
+    vp.forEach((record) => {
+      if (!productsByVideo[record.videoId])
+        productsByVideo[record.videoId] = [];
+      productsByVideo[record.videoId].push({
+        ...record.product,
+        startTime: record.startTime,
+        endTime: record.endTime,
+        price: formatPrice(record.product.price)
+      });
+    });
+  }
+  const filtered = allVideos.filter((video) => {
+    if (!conditions || !Array.isArray(conditions))
+      return true;
+    for (const cond of conditions) {
+      const field = cond.field;
+      const operator = cond.operator;
+      if (!cond.value || Array.isArray(cond.value) && cond.value.length === 0)
+        continue;
+      if (field === "title") {
+        const title = video.title.toLowerCase();
+        const val = String(cond.value).toLowerCase();
+        if (operator === "equal_to" && title !== val)
+          return false;
+        if (operator === "not_equal_to" && title === val)
+          return false;
+        if (operator === "contains" && !title.includes(val))
+          return false;
+        if (operator === "not_contains" && title.includes(val))
+          return false;
+      } else if (field === "description") {
+        const desc2 = (video.description || "").toLowerCase();
+        const val = String(cond.value).toLowerCase();
+        if (operator === "equal_to" && desc2 !== val)
+          return false;
+        if (operator === "not_equal_to" && desc2 === val)
+          return false;
+        if (operator === "contains" && !desc2.includes(val))
+          return false;
+        if (operator === "not_contains" && desc2.includes(val))
+          return false;
+      } else if (field === "tags") {
+        const tags = (video.tags || []).map((t) => String(t).toLowerCase());
+        const targetTags = (Array.isArray(cond.value) ? cond.value : [cond.value]).map((t) => String(t).toLowerCase());
+        if (targetTags.length > 0) {
+          if (operator === "contains_tags") {
+            if (!targetTags.some((t) => tags.includes(t)))
+              return false;
+          } else if (operator === "not_contains_tags") {
+            if (targetTags.some((t) => tags.includes(t)))
+              return false;
+          }
+        }
+      } else if (field === "products") {
+        const videoProds = (productsByVideo[video.id] || []).map((p) => p.id);
+        const videoProdLinks = (productsByVideo[video.id] || []).map((p) => p.link ? String(p.link).toLowerCase().trim() : "").filter(Boolean);
+        if (operator === "url_equals_page_url" || operator === "url_contains_page_url") {
+          if (!pageUrl)
+            return false;
+          const pUrl = pageUrl.toLowerCase().trim();
+          const pUrlNoQuery = pUrl.split("?")[0];
+          if (operator === "url_equals_page_url") {
+            if (!videoProdLinks.some((l) => l === pUrl || l === pUrlNoQuery))
+              return false;
+          } else if (operator === "url_contains_page_url") {
+            if (!videoProdLinks.some((l) => pUrl.includes(l) || l.includes(pUrl)))
+              return false;
+          }
+        } else {
+          const targetProds = (Array.isArray(cond.value) ? cond.value : [cond.value]).map(Number);
+          if (targetProds.length > 0) {
+            if (operator === "contains_products") {
+              if (!targetProds.some((id) => videoProds.includes(id)))
+                return false;
+            } else if (operator === "not_contains_products") {
+              if (targetProds.some((id) => videoProds.includes(id)))
+                return false;
+            } else if (operator === "contains_only_product") {
+              if (videoProds.length !== targetProds.length)
+                return false;
+              if (!targetProds.every((id) => videoProds.includes(id)))
+                return false;
+            }
+          }
+        }
+      }
+    }
+    return true;
+  });
+  return { videos: filtered, productsByVideo };
+}
 function registerRoutes(app2) {
   app2.post("/api/auth/register", async (req, res) => {
     const { name, email, password } = req.body;
@@ -1948,13 +1031,17 @@ function registerRoutes(app2) {
   app2.put("/api/stores/:id", authMiddleware, async (req, res) => {
     const payload = req.user;
     const storeId = parseInt(req.params.id);
-    const { name, allowedDomain } = req.body;
+    const { name, allowedDomain, headerScripts, footerScripts } = req.body;
     if (!name || !allowedDomain)
       return res.status(400).json({ error: "Nome da loja e dom\xEDnio s\xE3o obrigat\xF3rios" });
     const [existing] = await db.select().from(stores).where(and(eq3(stores.id, storeId), eq3(stores.ownerId, payload.userId))).limit(1);
     if (!existing)
       return res.status(404).json({ error: "Loja n\xE3o encontrada ou acesso negado." });
-    const [store] = await db.update(stores).set({ name, allowedDomain, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(stores.id, storeId)).returning();
+    const [store] = await db.update(stores).set({
+      name,
+      allowedDomain,
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(and(eq3(stores.id, storeId), eq3(stores.ownerId, payload.userId))).returning();
     res.json({ store });
   });
   function getStoreId(req) {
@@ -2162,44 +1249,57 @@ function registerRoutes(app2) {
           targetStore = store;
         }
       }
-      const cv = await db.select({
-        videoId: carouselVideos.videoId,
-        position: carouselVideos.position,
-        video: {
-          id: shoppableVideos.id,
-          title: shoppableVideos.title,
-          description: shoppableVideos.description,
-          mediaUrl: shoppableVideos.mediaUrl,
-          thumbnailUrl: shoppableVideos.thumbnailUrl
-        }
-      }).from(carouselVideos).innerJoin(shoppableVideos, eq3(carouselVideos.videoId, shoppableVideos.id)).where(eq3(carouselVideos.carouselId, carouselId)).orderBy(carouselVideos.position);
-      const videoIds = cv.map((r) => r.videoId);
-      let productsByVideo = {};
-      if (carousel.showProducts && videoIds.length > 0) {
-        const vp = await db.select({
-          videoId: videoProducts.videoId,
-          startTime: videoProducts.startTime,
-          endTime: videoProducts.endTime,
-          product: {
-            id: products.id,
-            title: products.title,
-            price: products.price,
-            imageLink: products.imageLink,
-            link: products.link
+      if (carousel.videoSelectionType === "dynamic") {
+        const resolved = await resolveDynamicVideos(carousel.storeId, carousel.dynamicVideoConditions, carousel.showProducts, req.query.pageUrl || "");
+        const videos = resolved.videos.map((v, i) => ({
+          ...v,
+          position: i,
+          productsList: resolved.productsByVideo[v.id] || []
+        }));
+        res.json({ carousel, videos });
+      } else {
+        const cv = await db.select({
+          videoId: carouselVideos.videoId,
+          position: carouselVideos.position,
+          video: {
+            id: shoppableVideos.id,
+            title: shoppableVideos.title,
+            description: shoppableVideos.description,
+            mediaUrl: shoppableVideos.mediaUrl,
+            thumbnailUrl: shoppableVideos.thumbnailUrl
           }
-        }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(inArray(videoProducts.videoId, videoIds)).orderBy(videoProducts.startTime);
-        vp.forEach((record) => {
-          if (!productsByVideo[record.videoId])
-            productsByVideo[record.videoId] = [];
-          productsByVideo[record.videoId].push({
-            startTime: record.startTime,
-            endTime: record.endTime,
-            ...record.product,
-            price: formatPrice(record.product.price)
+        }).from(carouselVideos).innerJoin(shoppableVideos, eq3(carouselVideos.videoId, shoppableVideos.id)).where(eq3(carouselVideos.carouselId, carouselId)).orderBy(carouselVideos.position);
+        const videoIds = cv.map((r) => r.videoId);
+        let productsByVideo = {};
+        if (carousel.showProducts && videoIds.length > 0) {
+          const vp = await db.select({
+            videoId: videoProducts.videoId,
+            startTime: videoProducts.startTime,
+            endTime: videoProducts.endTime,
+            product: {
+              id: products.id,
+              title: products.title,
+              price: products.price,
+              imageLink: products.imageLink,
+              link: products.link
+            }
+          }).from(videoProducts).innerJoin(products, eq3(videoProducts.productId, products.id)).where(inArray(videoProducts.videoId, videoIds)).orderBy(videoProducts.startTime);
+          vp.forEach((record) => {
+            if (!productsByVideo[record.videoId])
+              productsByVideo[record.videoId] = [];
+            productsByVideo[record.videoId].push({
+              startTime: record.startTime,
+              endTime: record.endTime,
+              ...record.product,
+              price: formatPrice(record.product.price)
+            });
           });
+        }
+        res.json({
+          carousel,
+          videos: cv.map((r) => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] }))
         });
       }
-      res.json({ carousel, videos: cv.map((r) => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] })) });
       if (targetStore) {
         const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
         if (shouldCountView(carouselId, ip)) {
@@ -2218,26 +1318,23 @@ function registerRoutes(app2) {
       res.status(500).json({ error: e.message });
     }
   });
-  app2.get("/embed/vidshop.js", (_req, res) => {
+  app2.use("/embed", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", "application/javascript");
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    const origin = process.env.PUBLIC_URL || "";
-    res.send(publicScript.replace("__API_ORIGIN__", origin));
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    next();
+  });
+  app2.use("/embed", express2.static(path5.resolve("dist/public/embed")));
+  app2.use("/embed", express2.static(path5.resolve("server/embed")));
+  app2.get("/embed/vidshop.js", async (req, res) => {
+    const distPath = path5.resolve("dist/public/embed/vidshop.js");
+    if (fs4.existsSync(distPath)) {
+      return res.sendFile(distPath);
+    }
+    res.status(404).send("Embed script not found. Run 'npm run build:embed'.");
   });
   app2.get("/embed/carousel.js", (_req, res) => {
     res.redirect(301, "/embed/vidshop.js");
-  });
-  app2.get("/embed/vidshop.css", (_req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", "text/css");
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    const cssPath = path5.resolve("server/embed/vidshop.css");
-    if (fs4.existsSync(cssPath)) {
-      res.sendFile(cssPath);
-    } else {
-      res.status(404).send("CSS not found");
-    }
   });
   app2.get("/api/carousels", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
@@ -2250,6 +1347,17 @@ function registerRoutes(app2) {
     const [carousel] = await db.select().from(videoCarousels).where(and(eq3(videoCarousels.id, carouselId), eq3(videoCarousels.storeId, storeId)));
     if (!carousel)
       return res.status(404).json({ error: "Carrossel n\xE3o encontrado" });
+    if (carousel.videoSelectionType === "dynamic") {
+      const resolved = await resolveDynamicVideos(storeId, carousel.dynamicVideoConditions, true);
+      const mappedVideos = resolved.videos.map((v, i) => ({
+        id: i,
+        carouselId,
+        videoId: v.id,
+        position: i,
+        video: { ...v, productsList: resolved.productsByVideo[v.id] || [] }
+      }));
+      return res.json({ carousel, videos: mappedVideos });
+    }
     const cv = await db.select({
       id: carouselVideos.id,
       carouselId: carouselVideos.carouselId,
@@ -2328,7 +1436,13 @@ function registerRoutes(app2) {
         paddingTop,
         paddingRight,
         paddingBottom,
-        paddingLeft
+        paddingLeft,
+        integrationMode,
+        selector,
+        insertionMethod,
+        conditions,
+        videoSelectionType,
+        dynamicVideoConditions
       } = req.body;
       const [carousel] = await db.insert(videoCarousels).values({
         storeId,
@@ -2348,7 +1462,13 @@ function registerRoutes(app2) {
         paddingTop: paddingTop || "0px",
         paddingRight: paddingRight || "0px",
         paddingBottom: paddingBottom || "0px",
-        paddingLeft: paddingLeft || "0px"
+        paddingLeft: paddingLeft || "0px",
+        integrationMode: integrationMode || "code",
+        selector: selector || null,
+        insertionMethod: insertionMethod || "after",
+        conditions: conditions || [],
+        videoSelectionType: videoSelectionType || "manual",
+        dynamicVideoConditions: dynamicVideoConditions || []
       }).returning();
       res.status(201).json({ carousel });
     } catch (e) {
@@ -2376,7 +1496,13 @@ function registerRoutes(app2) {
       paddingTop,
       paddingRight,
       paddingBottom,
-      paddingLeft
+      paddingLeft,
+      integrationMode,
+      selector,
+      insertionMethod,
+      conditions,
+      videoSelectionType,
+      dynamicVideoConditions
     } = req.body;
     try {
       const [updated] = await db.update(videoCarousels).set({
@@ -2397,6 +1523,12 @@ function registerRoutes(app2) {
         paddingRight,
         paddingBottom,
         paddingLeft,
+        integrationMode,
+        selector,
+        insertionMethod,
+        conditions,
+        videoSelectionType,
+        dynamicVideoConditions,
         updatedAt: /* @__PURE__ */ new Date()
       }).where(and(eq3(videoCarousels.id, carouselId), eq3(videoCarousels.storeId, storeId))).returning();
       if (!updated)
@@ -2452,7 +1584,13 @@ function registerRoutes(app2) {
       paddingLeft,
       bubbleWidth,
       bubbleHeight,
-      borderRadius
+      borderRadius,
+      integrationMode,
+      selector,
+      insertionMethod,
+      conditions,
+      videoSelectionType,
+      dynamicVideoConditions
     } = req.body;
     if (!name)
       return res.status(400).json({ error: "Nome da story \xE9 obrigat\xF3rio" });
@@ -2474,7 +1612,13 @@ function registerRoutes(app2) {
       paddingBottom: paddingBottom || "0px",
       paddingLeft: paddingLeft || "0px",
       bubbleWidth: bubbleWidth || "80px",
-      bubbleHeight: bubbleHeight || "80px"
+      bubbleHeight: bubbleHeight || "80px",
+      integrationMode: integrationMode || "code",
+      selector: selector || null,
+      insertionMethod: insertionMethod || "after",
+      conditions: conditions || [],
+      videoSelectionType: videoSelectionType || "manual",
+      dynamicVideoConditions: dynamicVideoConditions || []
     }).returning();
     res.status(201).json({ story });
   });
@@ -2484,6 +1628,18 @@ function registerRoutes(app2) {
     const [story] = await db.select().from(videoStories).where(and(eq3(videoStories.id, storyId), eq3(videoStories.storeId, storeId))).limit(1);
     if (!story)
       return res.status(404).json({ error: "Story n\xE3o encontrada" });
+    if (story.videoSelectionType === "dynamic") {
+      const resolved = await resolveDynamicVideos(storeId, story.dynamicVideoConditions, true);
+      const mappedVideos = resolved.videos.map((v, i) => ({
+        id: v.id,
+        title: v.title,
+        mediaUrl: v.mediaUrl,
+        thumbnailUrl: v.thumbnailUrl,
+        position: i,
+        productsList: resolved.productsByVideo[v.id] || []
+      }));
+      return res.json({ ...story, videos: mappedVideos });
+    }
     const videosRaw = await db.select({
       id: shoppableVideos.id,
       title: shoppableVideos.title,
@@ -2544,7 +1700,13 @@ function registerRoutes(app2) {
       paddingLeft,
       bubbleWidth,
       bubbleHeight,
-      borderRadius
+      borderRadius,
+      integrationMode,
+      selector,
+      insertionMethod,
+      conditions,
+      videoSelectionType,
+      dynamicVideoConditions
     } = req.body;
     const [existing] = await db.select().from(videoStories).where(and(eq3(videoStories.id, storyId), eq3(videoStories.storeId, storeId))).limit(1);
     if (!existing)
@@ -2568,6 +1730,12 @@ function registerRoutes(app2) {
       bubbleWidth,
       bubbleHeight,
       borderRadius: parseInt(borderRadius || "8"),
+      integrationMode,
+      selector,
+      insertionMethod,
+      conditions,
+      videoSelectionType,
+      dynamicVideoConditions,
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq3(videoStories.id, storyId)).returning();
     if (videos && Array.isArray(videos)) {
@@ -2636,6 +1804,26 @@ function registerRoutes(app2) {
           currentCycleViews: sql2`${stores.currentCycleViews} + 1`
         }).where(eq3(stores.id, story.storeId)).catch((e) => console.error("[view-tracker] Views increment failed:", e));
       }
+      if (story.videoSelectionType === "dynamic") {
+        const resolved = await resolveDynamicVideos(story.storeId, story.dynamicVideoConditions, story.showProducts, req.query.pageUrl || "");
+        const videos2 = resolved.videos.map((v, i) => ({
+          id: v.id,
+          title: v.title,
+          mediaUrl: v.mediaUrl,
+          thumbnailUrl: v.thumbnailUrl,
+          position: i,
+          products: (resolved.productsByVideo[v.id] || []).map((p) => ({
+            id: p.id,
+            title: p.title,
+            price: p.price,
+            imageLink: p.imageLink,
+            link: p.link,
+            startTime: p.startTime,
+            endTime: p.endTime
+          }))
+        }));
+        return res.json({ ...story, videos: videos2 });
+      }
       const svRaw = await db.select({
         id: shoppableVideos.id,
         title: shoppableVideos.title,
@@ -2659,7 +1847,43 @@ function registerRoutes(app2) {
         }));
         return { ...v, products: formattedProducts };
       }));
-      res.json({ ...story, videos });
+      res.json({
+        ...story,
+        videos
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.get("/api/public/store-config", async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const origin = req.headers.origin || req.headers.referer || "";
+      if (!origin) {
+        console.warn("[store-config] Origin/Referer missing");
+        return res.status(400).json({ error: "Origin/Referer missing" });
+      }
+      const cleanOrigin = origin.replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
+      const allStores = await db.select().from(stores);
+      const store = allStores.find((s) => {
+        if (!s.allowedDomain)
+          return false;
+        const cleanAllowed = s.allowedDomain.replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
+        return cleanOrigin.includes(cleanAllowed) || cleanAllowed.includes(cleanOrigin);
+      });
+      if (!store) {
+        console.warn(`[store-config] Loja n\xE3o encontrada para a origem: ${origin} (limpa: ${cleanOrigin})`);
+        return res.status(404).json({ error: `Store not found for domain: ${cleanOrigin}. Certifique-se de que o dom\xEDnio est\xE1 configurado corretamente na loja.` });
+      }
+      const carousels = await db.select().from(videoCarousels).where(eq3(videoCarousels.storeId, store.id));
+      const stories = await db.select().from(videoStories).where(eq3(videoStories.storeId, store.id));
+      res.json({
+        store: { id: store.id, name: store.name },
+        carousels,
+        stories
+      });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -2743,19 +1967,40 @@ function registerRoutes(app2) {
       if (count >= limits.maxVideos) {
         return res.status(403).json({ error: `Limite atingido. Voc\xEA pode estocar at\xE9 ${limits.maxVideos} v\xEDdeo(s) no plano ${limits.name}. Fa\xE7a o upgrade para expandir.` });
       }
-      const { title, description, mediaUrl, thumbnailUrl } = req.body;
-      const [video] = await db.insert(shoppableVideos).values({ storeId, title: title || "Novo V\xEDdeo", description, mediaUrl, thumbnailUrl }).returning();
+      const { title, description, mediaUrl, thumbnailUrl, tags } = req.body;
+      const [video] = await db.insert(shoppableVideos).values({ storeId, title: title || "Novo V\xEDdeo", description, mediaUrl, thumbnailUrl, tags: tags || [] }).returning();
       res.status(201).json({ video });
     } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  app2.post("/api/videos/preview-dynamic", authMiddleware, async (req, res) => {
+    try {
+      const storeId = getStoreId(req);
+      const { conditions, fetchProducts, pageUrl } = req.body;
+      if (!conditions || !Array.isArray(conditions)) {
+        return res.json({ videos: [] });
+      }
+      const resolved = await resolveDynamicVideos(storeId, conditions, fetchProducts ?? true, pageUrl || "");
+      const mappedVideos = resolved.videos.map((v) => ({
+        id: v.id,
+        title: v.title,
+        mediaUrl: v.mediaUrl,
+        thumbnailUrl: v.thumbnailUrl,
+        productsList: resolved.productsByVideo[v.id] || []
+      }));
+      return res.json({ videos: mappedVideos });
+    } catch (e) {
+      console.error("Preview Dynamic Videos Error:", e);
       res.status(500).json({ error: e.message });
     }
   });
   app2.put("/api/videos/:id", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
     const videoId = parseInt(req.params.id);
-    const { title, description, mediaUrl, thumbnailUrl, productsList } = req.body;
+    const { title, description, mediaUrl, thumbnailUrl, productsList, tags } = req.body;
     try {
-      const [updated] = await db.update(shoppableVideos).set({ title, description, mediaUrl, thumbnailUrl }).where(and(eq3(shoppableVideos.id, videoId), eq3(shoppableVideos.storeId, storeId))).returning();
+      const [updated] = await db.update(shoppableVideos).set({ title, description, mediaUrl, thumbnailUrl, tags }).where(and(eq3(shoppableVideos.id, videoId), eq3(shoppableVideos.storeId, storeId))).returning();
       if (!updated)
         return res.status(404).json({ error: "V\xEDdeo n\xE3o encontrado" });
       if (productsList && Array.isArray(productsList)) {
@@ -2788,6 +2033,14 @@ function registerRoutes(app2) {
   });
   app2.get("/api/products", authMiddleware, async (req, res) => {
     const storeId = getStoreId(req);
+    if (req.query.ids) {
+      const rawIds = String(req.query.ids).split(",").map((id) => parseInt(id.trim())).filter((id) => !isNaN(id));
+      if (rawIds.length === 0) {
+        return res.json({ products: [], total: 0, page: 1, totalPages: 1 });
+      }
+      const list2 = await db.select().from(products).where(and(eq3(products.storeId, storeId), inArray(products.id, rawIds)));
+      return res.json({ products: list2, total: list2.length, page: 1, totalPages: 1 });
+    }
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const search = req.query.search || "";
@@ -3034,13 +2287,13 @@ function startSyncScheduler() {
 import path6 from "path";
 import { eq as eq5 } from "drizzle-orm";
 dotenv3.config();
-var app = express2();
+var app = express3();
 app.use(cors({ origin: "*" }));
 var server = createServer(app);
-app.use("/api/stripe/webhook", express2.raw({ type: "application/json" }));
-app.use(express2.json());
-app.use(express2.urlencoded({ extended: false }));
-app.use("/uploads", express2.static(path6.resolve("uploads")));
+app.use("/api/stripe/webhook", express3.raw({ type: "application/json" }));
+app.use(express3.json());
+app.use(express3.urlencoded({ extended: false }));
+app.use("/uploads", express3.static(path6.resolve("uploads")));
 registerRoutes(app);
 await setupVite(app, server);
 await db.update(catalogImports).set({ status: "failed", error: "Interrompido pela reinicializa\xE7\xE3o do servidor" }).where(eq5(catalogImports.status, "processing"));
