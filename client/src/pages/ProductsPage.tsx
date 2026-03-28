@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Product {
   id: number;
@@ -89,8 +90,9 @@ export default function ProductsPage() {
       });
       setProducts(prev => prev.filter(p => p.id !== id));
       setTotalItems(prev => prev - 1);
+      toast.success("Produto removido com sucesso!");
     } catch {
-      alert("Erro ao remover produto.");
+      toast.error("Erro ao remover produto.");
     }
   };
 
@@ -112,8 +114,9 @@ export default function ProductsPage() {
         const data = await res.json();
         setProducts(prev => prev.map(p => p.id === data.product.id ? data.product : p));
         setEditingProduct(null);
+        toast.success("Produto atualizado com sucesso!");
       } else {
-        alert("Erro ao salvar o produto.");
+        toast.error("Erro ao salvar o produto.");
       }
     } finally {
       setIsSaving(false);

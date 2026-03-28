@@ -108,6 +108,7 @@ export const shoppableVideos = pgTable("shoppable_videos", {
   autoThumbnails: jsonb("auto_thumbnails").$type<string[]>(),
   title: text("title").notNull(),
   description: text("description"),
+  tags: jsonb("tags").$type<string[]>().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -140,6 +141,11 @@ export const videoCarousels = pgTable("video_carousels", {
   selector: text("selector"),
   insertionMethod: text("insertion_method").default("after"), // before, after, prepend, append
   conditions: jsonb("conditions").default([]), // Array of { data: string, operator: string, value: string }
+  
+  // Dynamic Video Selection
+  videoSelectionType: text("video_selection_type").notNull().default("manual"), // manual, dynamic
+  dynamicVideoConditions: jsonb("dynamic_video_conditions").default([]), // Array of video conditions
+
 
   layout: text("layout").notNull().default("3d-card"),
   showProducts: boolean("show_products").notNull().default(true),
@@ -206,6 +212,10 @@ export const videoStories = pgTable("video_stories", {
   selector: text("selector"),
   insertionMethod: text("insertion_method").default("after"), // before, after, prepend, append
   conditions: jsonb("conditions").default([]), // Array of { data: string, operator: string, value: string }
+
+  // Dynamic Video Selection
+  videoSelectionType: text("video_selection_type").notNull().default("manual"), // manual, dynamic
+  dynamicVideoConditions: jsonb("dynamic_video_conditions").default([]), // Array of video conditions
 
   borderEnabled: boolean("border_enabled").notNull().default(true),
   showProducts: boolean("show_products").notNull().default(true),

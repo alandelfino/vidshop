@@ -4,6 +4,7 @@ import { Upload, Link as LinkIcon, AlertCircle, Loader2, CheckCircle2, XCircle, 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface ImportJob {
   id: number;
@@ -100,6 +101,7 @@ export default function ImportProductsPage() {
       setUrlInput("");
       setIsRecurring(false);
       fetchJobs();
+      toast.success(isRecurring ? "Sincronização agendada com sucesso!" : "Importação iniciada com sucesso!");
     } catch (e: any) {
       setErrorMsg(e.message);
     } finally {
@@ -130,6 +132,7 @@ export default function ImportProductsPage() {
       
       if (fileInputRef.current) fileInputRef.current.value = "";
       fetchJobs();
+      toast.success("Upload concluído! A importação foi iniciada.");
     } catch (e: any) {
       setErrorMsg(e.message);
     } finally {
@@ -146,8 +149,9 @@ export default function ImportProductsPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchJobs();
+      toast.success("Agendamento removido!");
     } catch (e) {
-      alert("Erro ao excluir agendamento.");
+      toast.error("Erro ao excluir agendamento.");
     }
   };
 

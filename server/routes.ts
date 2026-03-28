@@ -80,6 +80,90 @@ export function formatPrice(priceStr: string | null | undefined): string | null 
     return priceStr;
 }
 
+export async function resolveDynamicVideos(storeId: number, conditions: any[], fetchProducts: boolean = true) {
+    let productsByVideo: Record<number, any[]> = {};
+    const allVideos = await db.select().from(shoppableVideos)
+        .where(eq(shoppableVideos.storeId, storeId))
+        .orderBy(desc(shoppableVideos.createdAt));
+    
+    if (fetchProducts && allVideos.length > 0) {
+        const videoIds = allVideos.map((v) => v.id);
+        const vp = await db.select({
+            videoId: videoProducts.videoId,
+            startTime: videoProducts.startTime,
+            endTime: videoProducts.endTime,
+            product: { 
+                id: products.id, title: products.title, price: products.price, 
+                imageLink: products.imageLink, link: products.link 
+            }
+        }).from(videoProducts)
+          .innerJoin(products, eq(videoProducts.productId, products.id))
+          .where(inArray(videoProducts.videoId, videoIds))
+          .orderBy(videoProducts.startTime);
+        
+        vp.forEach((record) => {
+            if (!productsByVideo[record.videoId]) productsByVideo[record.videoId] = [];
+            productsByVideo[record.videoId].push({ 
+                ...record.product, 
+                startTime: record.startTime, 
+                endTime: record.endTime, 
+                price: formatPrice(record.product.price) 
+            });
+        });
+    }
+
+    const filtered = allVideos.filter(video => {
+        if (!conditions || !Array.isArray(conditions)) return true;
+        for (const cond of conditions) {
+            const field = cond.field;
+            const operator = cond.operator;
+            if (!cond.value || (Array.isArray(cond.value) && cond.value.length === 0)) continue;
+            
+            if (field === "title") {
+                const title = video.title.toLowerCase();
+                const val = String(cond.value).toLowerCase();
+                if (operator === "equal_to" && title !== val) return false;
+                if (operator === "not_equal_to" && title === val) return false;
+                if (operator === "contains" && !title.includes(val)) return false;
+                if (operator === "not_contains" && title.includes(val)) return false;
+            } else if (field === "description") {
+                const desc = (video.description || "").toLowerCase();
+                const val = String(cond.value).toLowerCase();
+                if (operator === "equal_to" && desc !== val) return false;
+                if (operator === "not_equal_to" && desc === val) return false;
+                if (operator === "contains" && !desc.includes(val)) return false;
+                if (operator === "not_contains" && desc.includes(val)) return false;
+            } else if (field === "tags") {
+                const tags = (video.tags || []).map((t: string) => String(t).toLowerCase());
+                const targetTags = (Array.isArray(cond.value) ? cond.value : [cond.value]).map((t: string) => String(t).toLowerCase());
+                if (targetTags.length > 0) {
+                    if (operator === "contains_tags") {
+                        if (!targetTags.some((t: string) => tags.includes(t))) return false;
+                    } else if (operator === "not_contains_tags") {
+                        if (targetTags.some((t: string) => tags.includes(t))) return false;
+                    }
+                }
+            } else if (field === "products") {
+                const videoProds = (productsByVideo[video.id] || []).map((p: any) => p.id);
+                const targetProds = (Array.isArray(cond.value) ? cond.value : [cond.value]).map(Number);
+                if (targetProds.length > 0) {
+                    if (operator === "contains_products") {
+                        if (!targetProds.some((id: number) => videoProds.includes(id))) return false;
+                    } else if (operator === "not_contains_products") {
+                        if (targetProds.some((id: number) => videoProds.includes(id))) return false;
+                    } else if (operator === "contains_only_product") {
+                        if (videoProds.length !== targetProds.length) return false;
+                        if (!targetProds.every((id: number) => videoProds.includes(id))) return false;
+                    }
+                }
+            }
+        }
+        return true;
+    });
+
+    return { videos: filtered, productsByVideo };
+}
+
 export function registerRoutes(app: Express) {
     // ── Auth ──────────────────────────────────────────────────────────────────
     app.post("/api/auth/register", async (req: Request, res: Response) => {
@@ -520,59 +604,68 @@ export function registerRoutes(app: Express) {
             }
 
             // ── Fetch carousel data ────────────────────────────────────────────
-            const cv = await db.select({
-                videoId: carouselVideos.videoId,
-                position: carouselVideos.position,
-                video: {
-                    id: shoppableVideos.id,
-                    title: shoppableVideos.title,
-                    description: shoppableVideos.description,
-                    mediaUrl: shoppableVideos.mediaUrl,
-                    thumbnailUrl: shoppableVideos.thumbnailUrl,
-                }
-            })
-                .from(carouselVideos)
-                .innerJoin(shoppableVideos, eq(carouselVideos.videoId, shoppableVideos.id))
-                .where(eq(carouselVideos.carouselId, carouselId))
-                .orderBy(carouselVideos.position);
-
-            const videoIds = cv.map(r => r.videoId);
-            let productsByVideo: Record<number, any[]> = {};
-            
-            if (carousel.showProducts && videoIds.length > 0) {
-                const vp = await db.select({
-                    videoId: videoProducts.videoId,
-                    startTime: videoProducts.startTime,
-                    endTime: videoProducts.endTime,
-                    product: {
-                        id: products.id,
-                        title: products.title,
-                        price: products.price,
-                        imageLink: products.imageLink,
-                        link: products.link,
+            if (carousel.videoSelectionType === "dynamic") {
+                const resolved = await resolveDynamicVideos(carousel.storeId!, carousel.dynamicVideoConditions as any[], carousel.showProducts);
+                const videos = resolved.videos.map((v, i) => ({
+                    ...v, position: i, productsList: resolved.productsByVideo[v.id] || []
+                }));
+                // Send the response FIRST (zero extra latency for the visitor)
+                res.json({ carousel, videos });
+            } else {
+                const cv = await db.select({
+                    videoId: carouselVideos.videoId,
+                    position: carouselVideos.position,
+                    video: {
+                        id: shoppableVideos.id,
+                        title: shoppableVideos.title,
+                        description: shoppableVideos.description,
+                        mediaUrl: shoppableVideos.mediaUrl,
+                        thumbnailUrl: shoppableVideos.thumbnailUrl,
                     }
                 })
-                    .from(videoProducts)
-                    .innerJoin(products, eq(videoProducts.productId, products.id))
-                    .where(inArray(videoProducts.videoId, videoIds))
-                    .orderBy(videoProducts.startTime);
+                    .from(carouselVideos)
+                    .innerJoin(shoppableVideos, eq(carouselVideos.videoId, shoppableVideos.id))
+                    .where(eq(carouselVideos.carouselId, carouselId))
+                    .orderBy(carouselVideos.position);
 
-                vp.forEach(record => {
-                    if (!productsByVideo[record.videoId]) productsByVideo[record.videoId] = [];
-                    productsByVideo[record.videoId].push({
-                        startTime: record.startTime,
-                        endTime: record.endTime,
-                        ...record.product,
-                        price: formatPrice(record.product.price)
+                const videoIds = cv.map(r => r.videoId);
+                let productsByVideo: Record<number, any[]> = {};
+                
+                if (carousel.showProducts && videoIds.length > 0) {
+                    const vp = await db.select({
+                        videoId: videoProducts.videoId,
+                        startTime: videoProducts.startTime,
+                        endTime: videoProducts.endTime,
+                        product: {
+                            id: products.id,
+                            title: products.title,
+                            price: products.price,
+                            imageLink: products.imageLink,
+                            link: products.link,
+                        }
+                    })
+                        .from(videoProducts)
+                        .innerJoin(products, eq(videoProducts.productId, products.id))
+                        .where(inArray(videoProducts.videoId, videoIds))
+                        .orderBy(videoProducts.startTime);
+
+                    vp.forEach(record => {
+                        if (!productsByVideo[record.videoId]) productsByVideo[record.videoId] = [];
+                        productsByVideo[record.videoId].push({
+                            startTime: record.startTime,
+                            endTime: record.endTime,
+                            ...record.product,
+                            price: formatPrice(record.product.price)
+                        });
                     });
+                }
+
+                // ── Send the response FIRST (zero extra latency for the visitor) ──
+                res.json({ 
+                    carousel, 
+                    videos: cv.map(r => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] })) 
                 });
             }
-
-            // ── Send the response FIRST (zero extra latency for the visitor) ──
-            res.json({ 
-                carousel, 
-                videos: cv.map(r => ({ ...r.video, productsList: productsByVideo[r.videoId] || [] })) 
-            });
 
             // ── Non-blocking view count increment (happens AFTER response) ────
             if (targetStore) {
@@ -640,6 +733,15 @@ export function registerRoutes(app: Express) {
         const carouselId = parseInt(req.params.id);
         const [carousel] = await db.select().from(videoCarousels).where(and(eq(videoCarousels.id, carouselId), eq(videoCarousels.storeId, storeId)));
         if (!carousel) return res.status(404).json({ error: "Carrossel não encontrado" });
+
+        if (carousel.videoSelectionType === "dynamic") {
+            const resolved = await resolveDynamicVideos(storeId, carousel.dynamicVideoConditions as any[], true);
+            const mappedVideos = resolved.videos.map((v, i) => ({
+                id: i, carouselId, videoId: v.id, position: i,
+                video: { ...v, productsList: resolved.productsByVideo[v.id] || [] }
+            }));
+            return res.json({ carousel, videos: mappedVideos });
+        }
 
         const cv = await db.select({
             id: carouselVideos.id,
@@ -721,7 +823,8 @@ export function registerRoutes(app: Express) {
                 name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime,
                 maxWidth, marginTop, marginRight, marginBottom, marginLeft,
                 paddingTop, paddingRight, paddingBottom, paddingLeft,
-                integrationMode, selector, insertionMethod, conditions
+                integrationMode, selector, insertionMethod, conditions,
+                videoSelectionType, dynamicVideoConditions
             } = req.body;
             const [carousel] = await db.insert(videoCarousels).values({
                 storeId,
@@ -746,6 +849,8 @@ export function registerRoutes(app: Express) {
                 selector: selector || null,
                 insertionMethod: insertionMethod || "after",
                 conditions: conditions || [],
+                videoSelectionType: videoSelectionType || "manual",
+                dynamicVideoConditions: dynamicVideoConditions || [],
             }).returning();
             res.status(201).json({ carousel });
         } catch (e: any) {
@@ -760,7 +865,8 @@ export function registerRoutes(app: Express) {
             name, title, subtitle, titleColor, subtitleColor, layout, showProducts, previewTime, videoIds,
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
             paddingTop, paddingRight, paddingBottom, paddingLeft,
-            integrationMode, selector, insertionMethod, conditions
+            integrationMode, selector, insertionMethod, conditions,
+            videoSelectionType, dynamicVideoConditions
         } = req.body;
         try {
             const [updated] = await db.update(videoCarousels)
@@ -769,6 +875,7 @@ export function registerRoutes(app: Express) {
                     maxWidth, marginTop, marginRight, marginBottom, marginLeft,
                     paddingTop, paddingRight, paddingBottom, paddingLeft,
                     integrationMode, selector, insertionMethod, conditions,
+                    videoSelectionType, dynamicVideoConditions,
                     updatedAt: new Date() 
                 })
                 .where(and(eq(videoCarousels.id, carouselId), eq(videoCarousels.storeId, storeId)))
@@ -821,7 +928,8 @@ export function registerRoutes(app: Express) {
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
             paddingTop, paddingRight, paddingBottom, paddingLeft,
             bubbleWidth, bubbleHeight, borderRadius,
-            integrationMode, selector, insertionMethod, conditions
+            integrationMode, selector, insertionMethod, conditions,
+            videoSelectionType, dynamicVideoConditions
         } = req.body;
         if (!name) return res.status(400).json({ error: "Nome da story é obrigatório" });
 
@@ -848,6 +956,8 @@ export function registerRoutes(app: Express) {
             selector: selector || null,
             insertionMethod: insertionMethod || "after",
             conditions: conditions || [],
+            videoSelectionType: videoSelectionType || "manual",
+            dynamicVideoConditions: dynamicVideoConditions || [],
         }).returning();
 
         res.status(201).json({ story });
@@ -859,6 +969,15 @@ export function registerRoutes(app: Express) {
 
         const [story] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
         if (!story) return res.status(404).json({ error: "Story não encontrada" });
+
+        if (story.videoSelectionType === "dynamic") {
+            const resolved = await resolveDynamicVideos(storeId, story.dynamicVideoConditions as any[], true);
+            const mappedVideos = resolved.videos.map((v, i) => ({
+                id: v.id, title: v.title, mediaUrl: v.mediaUrl, thumbnailUrl: v.thumbnailUrl, position: i,
+                productsList: resolved.productsByVideo[v.id] || []
+            }));
+            return res.json({ ...story, videos: mappedVideos });
+        }
 
         const videosRaw = await db.select({
             id: shoppableVideos.id,
@@ -915,7 +1034,8 @@ export function registerRoutes(app: Express) {
             maxWidth, marginTop, marginRight, marginBottom, marginLeft,
             paddingTop, paddingRight, paddingBottom, paddingLeft,
             bubbleWidth, bubbleHeight, borderRadius,
-            integrationMode, selector, insertionMethod, conditions
+            integrationMode, selector, insertionMethod, conditions,
+            videoSelectionType, dynamicVideoConditions
         } = req.body;
 
         const [existing] = await db.select().from(videoStories).where(and(eq(videoStories.id, storyId), eq(videoStories.storeId, storeId))).limit(1);
@@ -944,6 +1064,8 @@ export function registerRoutes(app: Express) {
             selector,
             insertionMethod,
             conditions,
+            videoSelectionType,
+            dynamicVideoConditions,
             updatedAt: new Date(),
         })
         .where(eq(videoStories.id, storyId))
@@ -1025,6 +1147,18 @@ export function registerRoutes(app: Express) {
                 db.update(stores).set({
                     currentCycleViews: sql`${stores.currentCycleViews} + 1`
                 }).where(eq(stores.id, story.storeId)).catch(e => console.error("[view-tracker] Views increment failed:", e));
+            }
+
+            if (story.videoSelectionType === "dynamic") {
+                const resolved = await resolveDynamicVideos(story.storeId!, story.dynamicVideoConditions as any[], story.showProducts);
+                const videos = resolved.videos.map((v, i) => ({
+                    id: v.id, title: v.title, mediaUrl: v.mediaUrl, thumbnailUrl: v.thumbnailUrl, position: i,
+                    products: (resolved.productsByVideo[v.id] || []).map(p => ({
+                        id: p.id, title: p.title, price: p.price, imageLink: p.imageLink, link: p.link,
+                        startTime: p.startTime, endTime: p.endTime
+                    }))
+                }));
+                return res.json({ ...story, videos });
             }
 
             const svRaw = await db.select({
@@ -1211,10 +1345,29 @@ export function registerRoutes(app: Express) {
                 return res.status(403).json({ error: `Limite atingido. Você pode estocar até ${limits.maxVideos} vídeo(s) no plano ${limits.name}. Faça o upgrade para expandir.` });
             }
 
-            const { title, description, mediaUrl, thumbnailUrl } = req.body;
-            const [video] = await db.insert(shoppableVideos).values({ storeId, title: title || "Novo Vídeo", description, mediaUrl, thumbnailUrl }).returning();
+            const { title, description, mediaUrl, thumbnailUrl, tags } = req.body;
+            const [video] = await db.insert(shoppableVideos).values({ storeId, title: title || "Novo Vídeo", description, mediaUrl, thumbnailUrl, tags: tags || [] }).returning();
             res.status(201).json({ video });
         } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post("/api/videos/preview-dynamic", authMiddleware, async (req: Request, res: Response) => {
+        try {
+            const storeId = getStoreId(req);
+            const { conditions, fetchProducts } = req.body;
+            if (!conditions || !Array.isArray(conditions)) {
+                return res.json({ videos: [] });
+            }
+            const resolved = await resolveDynamicVideos(storeId, conditions, fetchProducts ?? true);
+            const mappedVideos = resolved.videos.map(v => ({
+                id: v.id, title: v.title, mediaUrl: v.mediaUrl, thumbnailUrl: v.thumbnailUrl,
+                productsList: resolved.productsByVideo[v.id] || []
+            }));
+            return res.json({ videos: mappedVideos });
+        } catch (e: any) {
+            console.error("Preview Dynamic Videos Error:", e);
             res.status(500).json({ error: e.message });
         }
     });

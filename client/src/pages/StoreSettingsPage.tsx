@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStore } from "../context/StoreContext";
+import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,9 @@ export default function StoreSettingsPage() {
       });
       if (res.ok) {
         await fetchStores();
-        alert("Configurações salvas com sucesso!");
+        toast.success("Configurações salvas com sucesso!");
       } else {
-        alert("Erro ao salvar configurações.");
+        toast.error("Erro ao salvar configurações.");
       }
     } finally {
       setSavingDomain(false);
@@ -77,7 +78,7 @@ export default function StoreSettingsPage() {
                 className="absolute top-2 right-2 h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => {
                   navigator.clipboard.writeText(`<link rel="stylesheet" href="${window.location.origin}/embed/vidshop.css">`);
-                  alert("CSS copiado!");
+                  toast.success("CSS copiado para a área de transferência!");
                 }}
               >
                 Copiar
@@ -97,7 +98,7 @@ export default function StoreSettingsPage() {
                 className="absolute top-2 right-2 h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => {
                   navigator.clipboard.writeText(`<script src="${window.location.origin}/embed/vidshop.js"></script>`);
-                  alert("Script copiado!");
+                  toast.success("Script copiado para a área de transferência!");
                 }}
               >
                 Copiar

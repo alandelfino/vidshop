@@ -20,6 +20,7 @@ interface ShoppableVideo {
   thumbnailUrl: string | null;
   title: string;
   description: string | null;
+  tags: string[] | null;
   createdAt: string;
 }
 
@@ -77,7 +78,8 @@ export default function VideosPage() {
   };
 
   const filtered = videos.filter(v => 
-    v.title.toLowerCase().includes(search.toLowerCase())
+    v.title.toLowerCase().includes(search.toLowerCase()) ||
+    v.tags?.some(tag => tag.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -145,6 +147,16 @@ export default function VideosPage() {
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 p-3 pt-8 pb-3 text-white transition-transform duration-300">
                       <p className="font-semibold text-sm line-clamp-1">{video.title}</p>
+                      {video.tags && video.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1 opacity-80">
+                          {video.tags.slice(0, 3).map((tag, idx) => (
+                            <span key={idx} className="px-1.5 py-0.5 rounded-md bg-white/20 text-[9px] font-bold backdrop-blur-sm border border-white/10 uppercase">
+                              {tag}
+                            </span>
+                          ))}
+                          {video.tags.length > 3 && <span className="text-[9px] font-bold text-white/60">+{video.tags.length - 3}</span>}
+                        </div>
+                      )}
                     </div>
                  </div>
                  <div className="p-4 flex-1 flex flex-col pb-4">

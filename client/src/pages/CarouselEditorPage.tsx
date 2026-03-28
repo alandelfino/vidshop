@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
 interface ShoppableVideo {
   id: number;
@@ -231,6 +232,142 @@ function ConditionsSection({ conditions, setConditions }: { conditions: any[], s
   );
 }
 
+function DynamicVideoConditionsEditor({ conditions, setConditions }: { conditions: any[], setConditions: (v: any[]) => void }) {
+  const [previewVideos, setPreviewVideos] = useState<any[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  useEffect(() => {
+     let isMounted = true;
+     const timeout = setTimeout(async () => {
+         setLoadingPreview(true);
+         try {
+             const token = localStorage.getItem("token");
+             const res = await apiFetch("/api/videos/preview-dynamic", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                 body: JSON.stringify({ conditions })
+             });
+             if (res.ok && isMounted) {
+                 const data = await res.json();
+                 setPreviewVideos(data.videos || []);
+             }
+         } finally {
+             if (isMounted) setLoadingPreview(false);
+         }
+     }, 400);
+     return () => { isMounted = false; clearTimeout(timeout); };
+  }, [conditions]);
+
+  const addCondition = () => setConditions([...conditions, { field: "title", operator: "contains", value: "" }]);
+  const removeCondition = (idx: number) => setConditions(conditions.filter((_, i) => i !== idx));
+  const updateCondition = (idx: number, field: string, val: any) => {
+    const next = [...conditions];
+    next[idx] = { ...next[idx], [field]: val };
+    if (field === "field") {
+       if (val === "title" || val === "description") next[idx].operator = "contains";
+       if (val === "tags") next[idx].operator = "contains_tags";
+       if (val === "products") next[idx].operator = "contains_products";
+       next[idx].value = "";
+    }
+    setConditions(next);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="text-xs font-bold uppercase opacity-70">Regras de Extração Dinâmica</Label>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Vídeos da sua biblioteca que atenderem às regras serão incluídos neste carrossel automaticamente.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={addCondition} className="h-7 text-[10px] uppercase font-bold"><Plus className="w-3 h-3 mr-1" /> Add Regra</Button>
+      </div>
+      
+      {conditions.length === 0 ? (
+        <div className="text-center py-6 border-2 border-dashed border-border rounded-xl"><p className="text-xs text-muted-foreground">Nenhuma regra configurada. Todos os vídeos do seu catálogo aparecerão neste carrossel.</p></div>
+      ) : (
+        <div className="space-y-3">
+          {conditions.map((c, idx) => (
+            <div key={idx} className="flex flex-col lg:flex-row gap-3 items-end bg-muted/20 p-4 rounded-xl border">
+              <div className="flex-1 w-full space-y-1.5"><Label className="text-[10px] font-bold uppercase">Atributo</Label>
+                <select className="flex h-9 w-full rounded-md border bg-background px-3 text-[11px]" value={c.field} onChange={e => updateCondition(idx, "field", e.target.value)}>
+                  <option value="title">Nome do Vídeo</option>
+                  <option value="tags">Tags do Vídeo</option>
+                  <option value="description">Descrição do Vídeo</option>
+                  <option value="products">Produtos (IDs)</option>
+                </select>
+              </div>
+              <div className="flex-1 w-full space-y-1.5"><Label className="text-[10px] font-bold uppercase">Condição</Label>
+                <select className="flex h-9 w-full rounded-md border bg-background px-3 text-[11px]" value={c.operator} onChange={e => updateCondition(idx, "operator", e.target.value)}>
+                  {(c.field === "title" || c.field === "description") && (
+                    <>
+                      <option value="contains">contém</option>
+                      <option value="not_contains">não contém</option>
+                      <option value="equal_to">é igual a</option>
+                      <option value="not_equal_to">não é igual a</option>
+                    </>
+                  )}
+                  {c.field === "tags" && (
+                    <>
+                      <option value="contains_tags">contém as tags</option>
+                      <option value="not_contains_tags">não contém as tags</option>
+                    </>
+                  )}
+                  {c.field === "products" && (
+                    <>
+                      <option value="contains_products">contém os produtos</option>
+                      <option value="not_contains_products">não contém os produtos</option>
+                      <option value="contains_only_product">contém SOMENTE os produtos</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div className="flex-[2] w-full space-y-1.5"><Label className="text-[10px] font-bold uppercase">Valores Associados</Label>
+                <input type="text" placeholder={c.field === "tags" || c.field === "products" ? "Ex: id-123, id-456 (separados por vírgula)" : "Texto..."} className="flex h-9 w-full rounded-md border bg-background px-3 text-[11px]" value={Array.isArray(c.value) ? c.value.join(", ") : c.value} onChange={e => {
+                  const val = e.target.value;
+                  if (c.field === "tags" || c.field === "products") {
+                    updateCondition(idx, "value", val.split(",").map((s: string) => s.trim()).filter(Boolean));
+                  } else {
+                    updateCondition(idx, "value", val);
+                  }
+                }} />
+              </div>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeCondition(idx)}><X className="w-4 h-4" /></Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="pt-4 border-t mt-4 space-y-3">
+         <div className="flex items-center justify-between">
+           <Label className="text-[11px] font-bold uppercase opacity-70">Resultado do Filtro</Label>
+           <div className="flex items-center gap-2">
+               {loadingPreview && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+               {!loadingPreview && <span className="text-[10px] text-muted-foreground font-bold bg-muted border border-border/50 px-2 py-0.5 rounded shadow-sm">{previewVideos.length} vídeo(s)</span>}
+           </div>
+         </div>
+         {previewVideos.length === 0 ? (
+            <div className="text-center py-5 bg-muted/20 border rounded-lg"><span className="text-[11px] font-semibold text-muted-foreground">Nenhum vídeo atende aos critérios atuais.</span></div>
+         ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted">
+               {previewVideos.map(v => (
+                  <div key={v.id} className="min-w-[6.5rem] max-w-[6.5rem] aspect-[9/16] bg-black rounded-lg relative overflow-hidden flex-shrink-0 border shadow-sm group">
+                      {v.thumbnailUrl ? (
+                          <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                      ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted"><Video className="w-6 h-6 text-muted-foreground/30" /></div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-white">
+                          <p className="text-[9px] font-bold line-clamp-2 leading-tight">{v.title}</p>
+                      </div>
+                  </div>
+               ))}
+            </div>
+         )}
+      </div>
+    </div>
+  );
+}
+
 export default function CarouselEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -250,6 +387,8 @@ export default function CarouselEditorPage() {
   const [selector, setSelector] = useState("");
   const [insertionMethod, setInsertionMethod] = useState("after");
   const [conditions, setConditions] = useState<any[]>([]);
+  const [videoSelectionType, setVideoSelectionType] = useState("manual");
+  const [dynamicVideoConditions, setDynamicVideoConditions] = useState<any[]>([]);
   const [cardBorderWidth, setCardBorderWidth] = useState(0);
   const [cardBorderColor, setCardBorderColor] = useState("#000000");
   const [cardBorderRadius, setCardBorderRadius] = useState(12);
@@ -303,7 +442,9 @@ export default function CarouselEditorPage() {
         setSelector(c.selector || "");
         setInsertionMethod(c.insertionMethod || "after");
         setConditions(c.conditions || []);
-        setVideoList((data.videos || []).map((v: any) => ({ videoId: v.videoId, video: v.video })));
+        setVideoSelectionType(c.videoSelectionType || "manual");
+        setDynamicVideoConditions(c.dynamicVideoConditions || []);
+        setVideoList((data.videos || []).map((v: any) => ({ videoId: v.videoId || v.id, video: v.video || v })));
       } finally { setLoading(false); }
     };
     load();
@@ -323,7 +464,7 @@ export default function CarouselEditorPage() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { alert("O nome é obrigatório."); return; }
+    if (!name.trim()) { toast.error("O nome é obrigatório."); return; }
     setSaving(true);
     try {
       const token = localStorage.getItem("token");
@@ -333,6 +474,7 @@ export default function CarouselEditorPage() {
         maxWidth, marginTop, marginRight, marginBottom, marginLeft,
         paddingTop, paddingRight, paddingBottom, paddingLeft,
         integrationMode, selector, insertionMethod, conditions,
+        videoSelectionType, dynamicVideoConditions,
         videoIds: videoList.map(e => e.videoId)
       };
       const method = isNew ? "POST" : "PUT";
@@ -343,8 +485,9 @@ export default function CarouselEditorPage() {
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("Erro ao salvar");
+      toast.success("Carrossel salvo com sucesso!");
       if (isNew) { const created = await res.json(); navigate(`/dashboard/carousels/edit/${created.carousel.id}`, { replace: true }); }
-    } catch (e: any) { alert(e.message); } finally { setSaving(false); }
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
 
   if (loading) return <div className="flex h-full items-center justify-center p-24"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -435,23 +578,59 @@ export default function CarouselEditorPage() {
       <IntegrationSection id={id!} integrationMode={integrationMode} setIntegrationMode={setIntegrationMode} selector={selector} setSelector={setSelector} insertionMethod={insertionMethod} setInsertionMethod={setInsertionMethod} />
       <ConditionsSection conditions={conditions} setConditions={setConditions} />
 
-      <Card><CardHeader><CardTitle className="text-xs font-bold uppercase">Vídeos</CardTitle></CardHeader>
-      <CardContent>
-        <div className="flex gap-2 mb-4">
-          <input type="text" placeholder="Buscar..." className="flex h-9 w-full rounded-md border bg-background px-3 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          <Button size="sm" onClick={handleSearch}>Buscar</Button>
-        </div>
-        <div className="divide-y divide-border">
-          {videoList.map((entry, idx) => (
-            <div key={idx} className="flex items-center gap-3 py-3 px-2 group">
-              <GripVertical className="w-4 h-4 text-muted-foreground/30" />
-              <div className="w-16 h-10 bg-black rounded" />
-              <span className="text-sm font-semibold flex-1">{entry.video?.title}</span>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => setVideoList(prev => prev.filter((_, i) => i !== idx))}><X className="w-4 h-4" /></Button>
+      <Card>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
+          <CardTitle className="text-xs font-bold uppercase text-muted-foreground/70 tracking-widest">Seleção de Vídeos</CardTitle>
+          <div className="flex bg-muted p-1 rounded-lg w-fit">
+            <button onClick={() => setVideoSelectionType("manual")} className={cn("px-4 py-1.5 text-xs font-bold rounded-md transition-all", videoSelectionType === "manual" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground")}>Manual</button>
+            <button onClick={() => setVideoSelectionType("dynamic")} className={cn("px-4 py-1.5 text-xs font-bold rounded-md transition-all", videoSelectionType === "dynamic" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground")}>Dinâmica</button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {videoSelectionType === "dynamic" ? (
+            <DynamicVideoConditionsEditor conditions={dynamicVideoConditions} setConditions={setDynamicVideoConditions} />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input type="text" placeholder="Buscar..." className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} />
+                <Button onClick={handleSearch} disabled={searching}>Buscar</Button>
+              </div>
+              
+              {searchResults.length > 0 && (
+                <div className="bg-muted/10 border rounded-xl overflow-hidden">
+                  <div className="max-h-60 overflow-y-auto p-2 space-y-1">
+                    {searchResults.map((sv) => (
+                      <div key={sv.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted group">
+                        <div className="flex items-center gap-3">
+                          <img src={sv.thumbnailUrl || ""} alt="thumbnail" className="w-12 h-12 object-cover rounded bg-black/10" />
+                          <span className="text-sm font-semibold">{sv.title}</span>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => {
+                          if (!videoList.some(v => v.videoId === sv.id)) {
+                            setVideoList([...videoList, { videoId: sv.id, video: sv }]);
+                          }
+                        }}>Adicionar</Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="divide-y divide-border border rounded-xl mt-4">
+                {videoList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">Nenhum vídeo adicionado manualmente ainda. Busque e adicione acima.</div>}
+                {videoList.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-3 py-3 px-4 group bg-background hover:bg-muted/30">
+                    <GripVertical className="w-4 h-4 text-muted-foreground/30 cursor-grab" />
+                    <img src={entry.video?.thumbnailUrl || ""} alt="th" className="w-14 h-10 object-cover bg-black/10 rounded" />
+                    <span className="text-sm font-semibold flex-1">{entry.video?.title}</span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-30 group-hover:opacity-100 transition-opacity" onClick={() => setVideoList(prev => prev.filter((_, i) => i !== idx))}><X className="w-4 h-4" /></Button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-      </CardContent></Card>
+          )}
+        </CardContent>
+      </Card>
 
       {previewOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface MediaItem {
   id: number;
@@ -97,6 +98,7 @@ export default function MediaPage() {
           try {
             const data = JSON.parse(xhr.responseText);
             setItems((prev) => [data.media, ...prev]);
+            toast.success("Upload concluído!");
           } catch (e) {}
         } else {
           try {
@@ -137,6 +139,7 @@ export default function MediaPage() {
       });
       setItems((prev) => prev.filter((m) => m.id !== id));
       if (preview?.id === id) setPreview(null);
+      toast.success("Mídia excluída!");
     } finally {
       setDeletingId(null);
     }
@@ -196,7 +199,7 @@ export default function MediaPage() {
 
       {/* Upload error */}
       {uploadError && (
-        <div className="flex items-center justify-between gap-3 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-4 py-2.5">
           <span>{uploadError}</span>
           <button onClick={() => setUploadError("")} className="text-destructive hover:opacity-70 transition-opacity">
             <X className="w-3.5 h-3.5" />

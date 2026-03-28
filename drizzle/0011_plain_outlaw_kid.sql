@@ -1,0 +1,1 @@
+ALTER TABLE "shoppable_videos" ADD COLUMN "tags" jsonb DEFAULT '[]'::jsonb;

@@ -5,6 +5,7 @@ import { Loader2, Upload, Save, ArrowLeft, Plus, Search, Trash2, X, AlertCircle,
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 interface Product {
   id: number;
@@ -35,6 +36,8 @@ export default function VideoEditorPage() {
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [title, setTitle] = useState("Novo Vídeo Interativo");
   const [description, setDescription] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   
@@ -85,6 +88,7 @@ export default function VideoEditorPage() {
           
           setTitle(data.video.title || "");
           setDescription(data.video.description || "");
+          setTags(data.video.tags || []);
           setTimeline(data.videoProducts || []);
         } else {
           alert("Vídeo não encontrado.");
@@ -410,6 +414,19 @@ export default function VideoEditorPage() {
     setSelectedProduct(null);
     setSearchQuery("");
   };
+  const handleAddTag = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      if (!tags.includes(tagInput.trim())) {
+        setTags([...tags, tagInput.trim()]);
+      }
+      setTagInput("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(t => t !== tagToRemove));
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -419,10 +436,10 @@ export default function VideoEditorPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          title, description, mediaUrl, thumbnailUrl, productsList: timeline.map(t => ({ productId: t.productId, startTime: t.startTime, endTime: t.endTime }))
+          title, description, tags, mediaUrl, thumbnailUrl, productsList: timeline.map(t => ({ productId: t.productId, startTime: t.startTime, endTime: t.endTime }))
         })
       });
-      if (res.ok) alert("Vídeo e timeline salvos com sucesso!");
+      if (res.ok) toast.success("Vídeo e timeline salvos com sucesso!");
     } finally {
       setSaving(false);
     }
@@ -545,7 +562,27 @@ export default function VideoEditorPage() {
                 </div>
                 <div className="flex-1 flex flex-col">
                   <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Descrição</label>
-                  <textarea className="flex flex-1 min-h-[120px] w-full rounded-md border border-input bg-white text-black px-3 py-2 text-sm focus:ring-1 focus:ring-primary resize-none shadow-sm" value={description} onChange={e => setDescription(e.target.value)} />
+                  <textarea className="flex flex-1 min-h-[80px] w-full rounded-md border border-input bg-white text-black px-3 py-2 text-sm focus:ring-1 focus:ring-primary resize-none shadow-sm" value={description} onChange={e => setDescription(e.target.value)} />
+                </div>
+                
+                <div className="shrink-0">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Tags (Pressione Enter)</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2 px-1">
+                    {tags.map((tag, idx) => (
+                      <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 animate-in fade-in zoom-in-95">
+                        {tag}
+                        <button onClick={() => removeTag(tag)} className="hover:text-destructive transition-colors"><X className="w-2.5 h-2.5"/></button>
+                      </span>
+                    ))}
+                    {tags.length === 0 && <span className="text-[10px] text-muted-foreground italic">Nenhuma tag...</span>}
+                  </div>
+                  <input 
+                    className="flex h-9 w-full rounded-md border border-input bg-white text-black px-3 py-1 text-sm focus:ring-1 focus:ring-primary shadow-sm" 
+                    placeholder="Adicionar tag..." 
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={handleAddTag}
+                  />
                 </div>
               </CardContent>
             </Card>

@@ -17,6 +17,7 @@ import StoryEditorPage from "./pages/StoryEditorPage";
 import StoreSettingsPage from "./pages/StoreSettingsPage";
 import BillingPage from "./pages/BillingPage";
 import { StoreProvider } from "./context/StoreContext";
+import { Toaster } from "sonner";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("token");
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </StoreProvider>
+      <Toaster position="top-right" richColors />
     </BrowserRouter>
   );
 }
