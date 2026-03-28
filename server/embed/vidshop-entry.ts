@@ -197,7 +197,8 @@ declare var API_ORIGIN: string;
 
       el.dataset.vidshopLoaded = "1";
       injectCarouselSkeleton(el);
-      fetch(`${API_ORIGIN}/api/public/carousels/${cid}`).then(r => r.json()).then(data => {
+      const pageUrl = encodeURIComponent(window.location.href);
+      fetch(`${API_ORIGIN}/api/public/carousels/${cid}?pageUrl=${pageUrl}`).then(r => r.json()).then(data => {
         if (data.error) throw new Error(data.error);
         buildCarousel(el, data);
       }).catch(e => console.warn(`[Vidshop] Error carousel #${cid}`, e));
@@ -213,7 +214,8 @@ declare var API_ORIGIN: string;
 
       el.dataset.vidshopLoaded = "1";
       injectStoriesSkeleton(el);
-      fetch(`${API_ORIGIN}/api/public/stories/${sid}`).then(r => r.json()).then(data => {
+      const pageUrl = encodeURIComponent(window.location.href);
+      fetch(`${API_ORIGIN}/api/public/stories/${sid}?pageUrl=${pageUrl}`).then(r => r.json()).then(data => {
         if (data.error) throw new Error(data.error);
         el.innerHTML = "";
         el.classList.add("vidshop-fade-in");

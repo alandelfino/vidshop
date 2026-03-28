@@ -80,7 +80,7 @@ export function formatPrice(priceStr: string | null | undefined): string | null 
     return priceStr;
 }
 
-export async function resolveDynamicVideos(storeId: number, conditions: any[], fetchProducts: boolean = true) {
+export async function resolveDynamicVideos(storeId: number, conditions: any[], fetchProducts: boolean = true, pageUrl: string = "") {
     let productsByVideo: Record<number, any[]> = {};
     const allVideos = await db.select().from(shoppableVideos)
         .where(eq(shoppableVideos.storeId, storeId))
@@ -145,15 +145,32 @@ export async function resolveDynamicVideos(storeId: number, conditions: any[], f
                 }
             } else if (field === "products") {
                 const videoProds = (productsByVideo[video.id] || []).map((p: any) => p.id);
-                const targetProds = (Array.isArray(cond.value) ? cond.value : [cond.value]).map(Number);
-                if (targetProds.length > 0) {
-                    if (operator === "contains_products") {
-                        if (!targetProds.some((id: number) => videoProds.includes(id))) return false;
-                    } else if (operator === "not_contains_products") {
-                        if (targetProds.some((id: number) => videoProds.includes(id))) return false;
-                    } else if (operator === "contains_only_product") {
-                        if (videoProds.length !== targetProds.length) return false;
-                        if (!targetProds.every((id: number) => videoProds.includes(id))) return false;
+                const videoProdLinks = (productsByVideo[video.id] || [])
+                    .map((p: any) => p.link ? String(p.link).toLowerCase().trim() : "")
+                    .filter(Boolean);
+
+                if (operator === "url_equals_page_url" || operator === "url_contains_page_url") {
+                    if (!pageUrl) return false;
+                    const pUrl = pageUrl.toLowerCase().trim();
+                    // Clean query strings if exact match is used, just as a fallback
+                    const pUrlNoQuery = pUrl.split('?')[0];
+
+                    if (operator === "url_equals_page_url") {
+                        if (!videoProdLinks.some((l: string) => l === pUrl || l === pUrlNoQuery)) return false;
+                    } else if (operator === "url_contains_page_url") {
+                        if (!videoProdLinks.some((l: string) => pUrl.includes(l) || l.includes(pUrl))) return false;
+                    }
+                } else {
+                    const targetProds = (Array.isArray(cond.value) ? cond.value : [cond.value]).map(Number);
+                    if (targetProds.length > 0) {
+                        if (operator === "contains_products") {
+                            if (!targetProds.some((id: number) => videoProds.includes(id))) return false;
+                        } else if (operator === "not_contains_products") {
+                            if (targetProds.some((id: number) => videoProds.includes(id))) return false;
+                        } else if (operator === "contains_only_product") {
+                            if (videoProds.length !== targetProds.length) return false;
+                            if (!targetProds.every((id: number) => videoProds.includes(id))) return false;
+                        }
                     }
                 }
             }
@@ -605,7 +622,7 @@ export function registerRoutes(app: Express) {
 
             // ── Fetch carousel data ────────────────────────────────────────────
             if (carousel.videoSelectionType === "dynamic") {
-                const resolved = await resolveDynamicVideos(carousel.storeId!, carousel.dynamicVideoConditions as any[], carousel.showProducts);
+                const resolved = await resolveDynamicVideos(carousel.storeId!, carousel.dynamicVideoConditions as any[], carousel.showProducts, req.query.pageUrl as string || "");
                 const videos = resolved.videos.map((v, i) => ({
                     ...v, position: i, productsList: resolved.productsByVideo[v.id] || []
                 }));
@@ -1150,7 +1167,7 @@ export function registerRoutes(app: Express) {
             }
 
             if (story.videoSelectionType === "dynamic") {
-                const resolved = await resolveDynamicVideos(story.storeId!, story.dynamicVideoConditions as any[], story.showProducts);
+                const resolved = await resolveDynamicVideos(story.storeId!, story.dynamicVideoConditions as any[], story.showProducts, req.query.pageUrl as string || "");
                 const videos = resolved.videos.map((v, i) => ({
                     id: v.id, title: v.title, mediaUrl: v.mediaUrl, thumbnailUrl: v.thumbnailUrl, position: i,
                     products: (resolved.productsByVideo[v.id] || []).map(p => ({
@@ -1356,11 +1373,11 @@ export function registerRoutes(app: Express) {
     app.post("/api/videos/preview-dynamic", authMiddleware, async (req: Request, res: Response) => {
         try {
             const storeId = getStoreId(req);
-            const { conditions, fetchProducts } = req.body;
+            const { conditions, fetchProducts, pageUrl } = req.body;
             if (!conditions || !Array.isArray(conditions)) {
                 return res.json({ videos: [] });
             }
-            const resolved = await resolveDynamicVideos(storeId, conditions, fetchProducts ?? true);
+            const resolved = await resolveDynamicVideos(storeId, conditions, fetchProducts ?? true, pageUrl || "");
             const mappedVideos = resolved.videos.map(v => ({
                 id: v.id, title: v.title, mediaUrl: v.mediaUrl, thumbnailUrl: v.thumbnailUrl,
                 productsList: resolved.productsByVideo[v.id] || []
@@ -1375,11 +1392,11 @@ export function registerRoutes(app: Express) {
     app.put("/api/videos/:id", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
         const videoId = parseInt(req.params.id);
-        const { title, description, mediaUrl, thumbnailUrl, productsList } = req.body;
+        const { title, description, mediaUrl, thumbnailUrl, productsList, tags } = req.body;
 
         try {
             const [updated] = await db.update(shoppableVideos)
-                .set({ title, description, mediaUrl, thumbnailUrl })
+                .set({ title, description, mediaUrl, thumbnailUrl, tags })
                 .where(and(eq(shoppableVideos.id, videoId), eq(shoppableVideos.storeId, storeId)))
                 .returning();
 
@@ -1422,6 +1439,20 @@ export function registerRoutes(app: Express) {
 
     app.get("/api/products", authMiddleware, async (req: Request, res: Response) => {
         const storeId = getStoreId(req);
+        
+        // Handle direct ID list fetching (used for initializing ProductMultiSelect)
+        if (req.query.ids) {
+            const rawIds = String(req.query.ids).split(",").map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            if (rawIds.length === 0) {
+                return res.json({ products: [], total: 0, page: 1, totalPages: 1 });
+            }
+            const list = await db
+                .select()
+                .from(products)
+                .where(and(eq(products.storeId, storeId), inArray(products.id, rawIds)));
+            return res.json({ products: list, total: list.length, page: 1, totalPages: 1 });
+        }
+
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
         const search = (req.query.search as string) || "";

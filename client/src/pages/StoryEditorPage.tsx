@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ProductMultiSelect } from "@/components/ProductMultiSelect";
 
 interface ShoppableVideo {
     id: number;
@@ -254,7 +255,7 @@ function DynamicVideoConditionsEditor({ conditions, setConditions }: { condition
                 const res = await apiFetch("/api/videos/preview-dynamic", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ conditions })
+                    body: JSON.stringify({ conditions, pageUrl: "" })
                 });
                 if (res.ok && isMounted) {
                     const data = await res.json();
@@ -278,8 +279,13 @@ function DynamicVideoConditionsEditor({ conditions, setConditions }: { condition
             if (val === "products") next[idx].operator = "contains_products";
             next[idx].value = "";
         }
+        if (field === "operator" && (val === "url_equals_page_url" || val === "url_contains_page_url")) {
+            next[idx].value = "";
+        }
         setConditions(next);
     };
+
+    const hasPageUrlCondition = conditions.some((c: any) => c.operator === "url_equals_page_url" || c.operator === "url_contains_page_url");
 
     return (
         <div className="space-y-4">
@@ -326,19 +332,30 @@ function DynamicVideoConditionsEditor({ conditions, setConditions }: { condition
                                             <option value="contains_products">contém os produtos</option>
                                             <option value="not_contains_products">não contém os produtos</option>
                                             <option value="contains_only_product">contém SOMENTE os produtos</option>
+                                            <option value="url_equals_page_url">URL do produto é IGUAL à página do visitante</option>
+                                            <option value="url_contains_page_url">URL do produto CONTÉM a página do visitante</option>
                                         </>
                                     )}
                                 </select>
                             </div>
                             <div className="flex-[2] w-full space-y-1.5"><Label className="text-[10px] font-bold uppercase">Valores Associados</Label>
-                                <input type="text" placeholder={c.field === "tags" || c.field === "products" ? "Ex: id-123, id-456 (separados por vírgula)" : "Texto..."} className="flex h-9 w-full rounded-md border bg-background px-3 text-[11px]" value={Array.isArray(c.value) ? c.value.join(", ") : c.value} onChange={e => {
-                                    const val = e.target.value;
-                                    if (c.field === "tags" || c.field === "products") {
-                                        updateCondition(idx, "value", val.split(",").map((s: string) => s.trim()).filter(Boolean));
-                                    } else {
-                                        updateCondition(idx, "value", val);
-                                    }
-                                }} />
+                                {c.operator === "url_equals_page_url" || c.operator === "url_contains_page_url" ? (
+                                    <input type="text" disabled placeholder="Analisado dinamicamente..." className="flex h-9 w-full rounded-md border text-muted-foreground bg-muted/50 px-3 text-[11px] cursor-not-allowed" value="Automático pelo Contexto da Página" />
+                                ) : c.field === "products" ? (
+                                    <ProductMultiSelect
+                                        selectedIds={Array.isArray(c.value) ? c.value.map(Number) : []}
+                                        onChange={(ids) => updateCondition(idx, "value", ids)}
+                                    />
+                                ) : (
+                                    <input type="text" placeholder={c.field === "tags" ? "Ex: tag1, tag2 (separados por vírgula)" : "Texto..."} className="flex h-9 w-full rounded-md border bg-background px-3 text-[11px]" value={Array.isArray(c.value) ? c.value.join(", ") : c.value} onChange={e => {
+                                        const val = e.target.value;
+                                        if (c.field === "tags") {
+                                            updateCondition(idx, "value", val.split(",").map((s: string) => s.trim()).filter(Boolean));
+                                        } else {
+                                            updateCondition(idx, "value", val);
+                                        }
+                                    }} />
+                                )}
                             </div>
                             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeCondition(idx)}><X className="w-4 h-4" /></Button>
                         </div>
@@ -349,12 +366,18 @@ function DynamicVideoConditionsEditor({ conditions, setConditions }: { condition
             <div className="pt-4 border-t mt-4 space-y-3">
                 <div className="flex items-center justify-between">
                     <Label className="text-[11px] font-bold uppercase opacity-70">Resultado do Filtro</Label>
-                    <div className="flex items-center gap-2">
-                        {loadingPreview && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                        {!loadingPreview && <span className="text-[10px] text-muted-foreground font-bold bg-muted border border-border/50 px-2 py-0.5 rounded shadow-sm">{previewVideos.length} vídeo(s)</span>}
-                    </div>
+                    {!hasPageUrlCondition && (
+                        <div className="flex items-center gap-2">
+                            {loadingPreview && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                            {!loadingPreview && <span className="text-[10px] text-muted-foreground font-bold bg-muted border border-border/50 px-2 py-0.5 rounded shadow-sm">{previewVideos.length} vídeo(s)</span>}
+                        </div>
+                    )}
                 </div>
-                {previewVideos.length === 0 ? (
+                {hasPageUrlCondition ? (
+                    <div className="text-center py-5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 rounded-lg">
+                        <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">✨ Os vídeos serão listados dinamicamente de acordo com a URL da página do visitante.</span>
+                    </div>
+                ) : previewVideos.length === 0 ? (
                     <div className="text-center py-5 bg-muted/20 border rounded-lg"><span className="text-[11px] font-semibold text-muted-foreground">Nenhum vídeo atende aos critérios atuais.</span></div>
                 ) : (
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted">
